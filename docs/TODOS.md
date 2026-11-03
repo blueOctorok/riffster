@@ -12,9 +12,9 @@ Check these off in order. The product decisions live in `PROJECT_ROADMAP.md`. Do
 
 ## 1. Run it as a Windows app
 
-- [ ] Add `C:\Users\blaha\flutter\bin` to PATH.
-- [ ] Install Visual Studio with the Desktop development with C++ workload.
-- [ ] `flutter run -d windows` opens the warm-up on the desktop.
+- [x] Add `C:\Users\blaha\flutter\bin` to PATH.
+- [x] Install Visual Studio with the Desktop development with C++ workload. Build Tools 2022 is enough. The full Visual Studio editor is not required.
+- [x] `flutter run -d windows` opens the warm-up on the desktop.
 
 ## 2. Import a Guitar Pro file
 

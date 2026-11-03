@@ -14,3 +14,5 @@ Scaffolded the Windows Flutter app and the first sideways tab.
 - End-to-end checklist added in `docs/TODOS.md`.
 - `riffster.xyz` is registered at Namecheap. It is the future download page, not a hosted version of the practice app.
 - The download page will be Next.js on Vercel. Flutter stays the desktop app.
+- Added `C:\Users\blaha\flutter\bin` to the user PATH so new terminals can run `flutter`.
+- Installed Visual Studio Build Tools 2022 with the C++ workload. `flutter run -d windows` builds `riffster.exe` and opens the warm-up. Android tooling is still missing, and that waits until the phone step.

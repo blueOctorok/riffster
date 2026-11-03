@@ -6,10 +6,10 @@ This first slice scrolls a short built-in phrase. Guitar Pro import and iRig sco
 
 ## Run the Windows app
 
-Install the [Desktop development with C++](https://docs.flutter.dev/platform-integration/windows/setup) workload in Visual Studio, then:
+This PC already has Visual Studio Build Tools 2022 with the C++ workload, and Flutter is on the user PATH. On a new machine, install the [Desktop development with C++](https://docs.flutter.dev/platform-integration/windows/setup) workload first.
 
 ```bash
 flutter run -d windows
 ```
 
-The Flutter SDK for this machine is at `C:\Users\blaha\flutter`. Add `C:\Users\blaha\flutter\bin` to your PATH if `flutter` is not found.
+The Flutter SDK for this machine is at `C:\Users\blaha\flutter`.

@@ -29,12 +29,13 @@ The name is Riffster. `riffster.xyz` is registered at Namecheap (bought 2026-11-
 - Note list model: time, string, fret, duration, MIDI pitch, and fretting finger.
 - Sideways six-string scroll with a fixed playhead, finger-colored dots, and a short original warm-up phrase.
 - Web preview added so the screen can be opened in Chrome before Visual Studio is installed. The product target is still the Windows app.
+- Visual Studio Build Tools 2022 with the C++ workload. `flutter run -d windows` opens the warm-up as a desktop window.
 
 The checklists are in `TODOS.md`. Work top to bottom.
 
 ## Pickup notes
 
-- Flutter SDK: `C:\Users\blaha\flutter` (stable 3.47.9). It is not on PATH for new terminals until that `bin` folder is added.
+- Flutter SDK: `C:\Users\blaha\flutter` (stable 3.47.9). `C:\Users\blaha\flutter\bin` is on the user PATH. A terminal that was already open may still need a restart before `flutter` is found.
 - String 1 is the top line of the tab (high E). String 6 is low E.
 - The scroll maps time to pixels: `x = playhead + (noteTime - now) * 120`.
 - Proven / Provven / `resume-wallet` is a different project. Do not mix it into this folder.
