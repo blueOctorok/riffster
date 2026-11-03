@@ -52,6 +52,14 @@ Check these off in order. The product decisions live in `PROJECT_ROADMAP.md`. Do
 - [ ] iPhone build. That needs a Mac or a cloud Mac, plus the $99 Apple developer account.
 - [ ] Google Play, if we publish Android, is a one-time $25 fee.
 
+## Download page
+
+The domain `riffster.xyz` is already registered at Namecheap. Build the page only after a Windows build exists to link to.
+
+- [ ] A short Next.js page on Vercel: what Riffster is, and a download button. The site is not the Flutter app.
+- [ ] The `.exe` lives on a GitHub release. The page links to that file. Do not commit the build into the repo.
+- [ ] Point the Namecheap DNS for `riffster.xyz` at Vercel when the page is ready.
+
 ## Later, only if we still want them
 
 - [ ] Ask Lava whether an outside app can ship in the Studio Appcenter and hear the guitar jack. Not a build target until they say yes.

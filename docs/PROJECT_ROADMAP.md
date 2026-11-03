@@ -6,7 +6,7 @@ A new chat can start here. The product decisions below are settled.
 
 A calm practice tool. A guitar tab scrolls sideways into a playhead, the way the Gibson app does. The player imports a file they already have. The app scores pitch and timing from a USB-C iRig. There is no song catalog, no account, and no server.
 
-The name is Riffster. `riffster.io` looked unregistered when we checked. `riffster.com` is taken.
+The name is Riffster. `riffster.xyz` is registered at Namecheap (bought 2026-11-03). That site is a small Next.js page on Vercel with a download button. It is not the Flutter app. `riffster.com` is taken.
 
 ## Stack
 

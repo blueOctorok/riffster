@@ -12,3 +12,5 @@ Scaffolded the Windows Flutter app and the first sideways tab.
 - Import, iRig scoring, and hearing yourself in the mix are not built yet.
 - Flutter SDK installed at `C:\Users\blaha\flutter`. Visual Studio C++ is still required to launch the Windows window.
 - End-to-end checklist added in `docs/TODOS.md`.
+- `riffster.xyz` is registered at Namecheap. It is the future download page, not a hosted version of the practice app.
+- The download page will be Next.js on Vercel. Flutter stays the desktop app.
