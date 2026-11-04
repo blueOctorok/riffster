@@ -8,7 +8,11 @@ import '../models/tab_note.dart';
 /// and an open string has no finger. The practice screen reads this same
 /// list, so a finger learned there is the finger a song will show.
 class ChordGrip {
-  const ChordGrip({required this.name, required this.frets, required this.fingers});
+  const ChordGrip({
+    required this.name,
+    required this.frets,
+    required this.fingers,
+  });
 
   final String name;
   final List<int?> frets;
@@ -23,31 +27,81 @@ const _r = FrettingFinger.ring;
 const _p = FrettingFinger.pinky;
 
 /// Familiar chord-chart order in the comments is low E to high e.
+/// The course and the importer both point at these same objects.
+const openG = ChordGrip(
+  name: 'G',
+  frets: [3, 0, 0, 0, 2, 3],
+  fingers: [_r, null, null, null, _i, _m],
+);
+const openC = ChordGrip(
+  name: 'C',
+  frets: [0, 1, 0, 2, 3, null],
+  fingers: [null, _i, null, _m, _r, null],
+);
+const openD = ChordGrip(
+  name: 'D',
+  frets: [2, 3, 2, 0, null, null],
+  fingers: [_m, _r, _i, null, null, null],
+);
+const openE = ChordGrip(
+  name: 'E',
+  frets: [0, 0, 1, 2, 2, 0],
+  fingers: [null, null, _i, _r, _m, null],
+);
+const openEm = ChordGrip(
+  name: 'Em',
+  frets: [0, 0, 0, 2, 2, 0],
+  fingers: [null, null, null, _r, _m, null],
+);
+const openEm7 = ChordGrip(
+  name: 'Em7',
+  frets: [0, 3, 0, 2, 2, 0],
+  fingers: [null, _r, null, _m, _i, null],
+);
+const openA = ChordGrip(
+  name: 'A',
+  frets: [0, 2, 2, 2, 0, null],
+  fingers: [null, _r, _m, _i, null, null],
+);
+const openAm = ChordGrip(
+  name: 'Am',
+  frets: [0, 1, 2, 2, 0, null],
+  fingers: [null, _i, _r, _m, null, null],
+);
+const openDm = ChordGrip(
+  name: 'Dm',
+  frets: [1, 3, 2, 0, null, null],
+  fingers: [_i, _r, _m, null, null, null],
+);
+const fSharp7 = ChordGrip(
+  name: 'F#7',
+  frets: [null, 5, 3, 2, 4, 2],
+  fingers: [null, _p, _m, _i, _r, _i],
+);
+const openBm = ChordGrip(
+  name: 'Bm',
+  frets: [2, 3, 4, 4, 2, null],
+  fingers: [_i, _m, _r, _r, _i, null],
+);
+const barreBm = ChordGrip(
+  name: 'Bm',
+  frets: [7, 7, 7, 9, 9, 7],
+  fingers: [_i, _i, _i, _p, _r, _i],
+);
+
 const chordBook = <ChordGrip>[
-  // 3 2 0 0 0 3
-  ChordGrip(name: 'G', frets: [3, 0, 0, 0, 2, 3], fingers: [_r, null, null, null, _i, _m]),
-  // x 3 2 0 1 0
-  ChordGrip(name: 'C', frets: [0, 1, 0, 2, 3, null], fingers: [null, _i, null, _m, _r, null]),
-  // x x 0 2 3 2
-  ChordGrip(name: 'D', frets: [2, 3, 2, 0, null, null], fingers: [_m, _r, _i, null, null, null]),
-  // 0 2 2 1 0 0
-  ChordGrip(name: 'E', frets: [0, 0, 1, 2, 2, 0], fingers: [null, null, _i, _r, _m, null]),
-  // 0 2 2 0 0 0
-  ChordGrip(name: 'Em', frets: [0, 0, 0, 2, 2, 0], fingers: [null, null, null, _r, _m, null]),
-  // 0 2 2 0 3 0
-  ChordGrip(name: 'Em7', frets: [0, 3, 0, 2, 2, 0], fingers: [null, _r, null, _m, _i, null]),
-  // x 0 2 2 2 0
-  ChordGrip(name: 'A', frets: [0, 2, 2, 2, 0, null], fingers: [null, _r, _m, _i, null, null]),
-  // x 0 2 2 1 0
-  ChordGrip(name: 'Am', frets: [0, 1, 2, 2, 0, null], fingers: [null, _i, _r, _m, null, null]),
-  // x x 0 2 3 1
-  ChordGrip(name: 'Dm', frets: [1, 3, 2, 0, null, null], fingers: [_i, _r, _m, null, null, null]),
-  // 2 4 2 3 5 x
-  ChordGrip(name: 'F#7', frets: [null, 5, 3, 2, 4, 2], fingers: [null, _p, _m, _i, _r, _i]),
-  // x 2 4 4 3 2
-  ChordGrip(name: 'Bm', frets: [2, 3, 4, 4, 2, null], fingers: [_i, _m, _r, _r, _i, null]),
-  // 7 9 9 7 7 7
-  ChordGrip(name: 'Bm', frets: [7, 7, 7, 9, 9, 7], fingers: [_i, _i, _i, _p, _r, _i]),
+  openG, // 3 2 0 0 0 3
+  openC, // x 3 2 0 1 0
+  openD, // x x 0 2 3 2
+  openE, // 0 2 2 1 0 0
+  openEm, // 0 2 2 0 0 0
+  openEm7, // 0 2 2 0 3 0
+  openA, // x 0 2 2 2 0
+  openAm, // x 0 2 2 1 0
+  openDm, // x x 0 2 3 1
+  fSharp7, // 2 4 2 3 5 x
+  openBm, // x 2 4 4 3 2
+  barreBm, // 7 9 9 7 7 7
 ];
 
 /// The grip these notes are holding, or null when none fits.
@@ -92,7 +146,9 @@ bool _matches(ChordGrip grip, Map<int, int> played) {
 
   if (_frettedCount(grip) >= 3) return true;
   for (var string = 1; string <= 6; string++) {
-    if (grip.frets[string - 1] == 0 && !played.containsKey(string)) return false;
+    if (grip.frets[string - 1] == 0 && !played.containsKey(string)) {
+      return false;
+    }
   }
   return true;
 }

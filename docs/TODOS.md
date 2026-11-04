@@ -32,7 +32,8 @@ Check these off in order. The product decisions live in `PROJECT_ROADMAP.md`. Do
 One list of grips: the name, the fret on each string, and the finger on each fret. Import reads it, and chord practice will read the same list. A finger learned in practice is the finger a song shows.
 
 - [x] The book holds the common open chords plus the grips this kind of file already uses (open G, D, F#7, Em7, and Bm, including the barre Bm). A matching stack takes that name and those fingers. A finger stored in the file still wins.
-- [ ] Chord practice shows one grip at a time on the staff. Play starts there later, once the iRig can hear a strum.
+- [x] Chord practice shows one grip at a time on the staff, in teaching order, using the book fingers. The last step is an original change, G D Em C. Hearing the strum waits for the iRig.
+- [x] The staff can wear a guitar neck: ebony, rosewood, or maple. Strings and open notes use whichever ink still shows on that wood. Finger colors stay put.
 
 ## 3. Score the iRig
 
@@ -78,5 +79,5 @@ The domain `riffster.xyz` is already registered at Namecheap. Build the page onl
 
 - A song catalog, including Beatles or Led Zeppelin files shipped by us.
 - Blockchain, a token, or an NFT.
-- A lesson course, trophies, or a game highway. Chord practice is the chord book on the staff, not a course.
+- Trophies or a game highway. Original chord practice is included. A course built from someone else's songs is not.
 - Accounts and a hosted database.

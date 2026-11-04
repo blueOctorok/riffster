@@ -5,6 +5,7 @@ import '../models/tab_note.dart';
 import '../models/tab_song.dart';
 import '../music/barre.dart';
 import '../music/chord_name.dart';
+import '../theme/neck_theme.dart';
 import 'finger_colors.dart';
 
 /// Six string lines. Notes move from the right into a fixed playhead.
@@ -13,6 +14,7 @@ class SidewaysTab extends StatelessWidget {
     super.key,
     required this.song,
     required this.position,
+    required this.neck,
   });
 
   /// Height of the staff band. The screen must not stretch past this.
@@ -20,6 +22,7 @@ class SidewaysTab extends StatelessWidget {
 
   final TabSong song;
   final Duration position;
+  final NeckTheme neck;
 
   @override
   Widget build(BuildContext context) {
@@ -27,6 +30,7 @@ class SidewaysTab extends StatelessWidget {
       painter: _SidewaysTabPainter(
         song: song,
         positionMs: position.inMilliseconds,
+        neck: neck,
       ),
       child: const SizedBox.expand(),
     );
@@ -37,10 +41,12 @@ class _SidewaysTabPainter extends CustomPainter {
   _SidewaysTabPainter({
     required this.song,
     required this.positionMs,
+    required this.neck,
   });
 
   final TabSong song;
   final int positionMs;
+  final NeckTheme neck;
 
   static const _stringNames = ['e', 'B', 'G', 'D', 'A', 'E'];
   static const _playheadX = 64.0;
@@ -54,13 +60,12 @@ class _SidewaysTabPainter extends CustomPainter {
   /// A quarter note at 100 bpm (600 ms) lands about 72 px to the right.
   static const _pixelsPerSecond = 120.0;
 
-  static const _staff = Color(0xFFF3EEE6);
-  static const _dim = Color(0xFF8A8175);
   static const _playhead = Color(0xFFE4B15A);
 
   @override
   void paint(Canvas canvas, Size size) {
-    final top = chordLabelSpace + (size.height - chordLabelSpace - stringGap * 5) / 2;
+    final top =
+        chordLabelSpace + (size.height - chordLabelSpace - stringGap * 5) / 2;
 
     for (var i = 0; i < 6; i++) {
       final y = top + stringGap * i;
@@ -97,14 +102,12 @@ class _SidewaysTabPainter extends CustomPainter {
       final y = top + stringGap * (note.string - 1);
       final passed = note.timeMs < positionMs - 70;
       final finger = note.finger;
-      final base = finger == null ? _staff : fingerColor[finger]!;
+      final base = finger == null ? neck.ink : fingerColor[finger]!;
       final color = passed ? base.withValues(alpha: 0.4) : base;
       if (finger == null) {
-        canvas.drawCircle(
-          Offset(x, y),
-          11,
-          Paint()..color = const Color(0xFF241F1A),
-        );
+        // The fill matches the wood, so an open note reads as a ring
+        // rather than a dot sitting on a different color.
+        canvas.drawCircle(Offset(x, y), 11, Paint()..color = neck.wood);
         canvas.drawCircle(
           Offset(x, y),
           11,
@@ -133,7 +136,12 @@ class _SidewaysTabPainter extends CustomPainter {
   /// A blue outline around the index barre and every note inside its reach.
   /// The other fingers keep their own colors. The oval only says "this is
   /// one barre."
-  void _paintBarreOval(Canvas canvas, double x, double stringTop, IndexBarre barre) {
+  void _paintBarreOval(
+    Canvas canvas,
+    double x,
+    double stringTop,
+    IndexBarre barre,
+  ) {
     final y1 = stringTop + stringGap * (barre.topString - 1);
     final y2 = stringTop + stringGap * (barre.bottomString - 1);
     final rect = RRect.fromRectAndRadius(
@@ -174,7 +182,11 @@ class _SidewaysTabPainter extends CustomPainter {
       final center = Offset(x, stringTop - 22);
       canvas.drawRRect(
         RRect.fromRectAndRadius(
-          Rect.fromCenter(center: center, width: chip.width, height: chip.height),
+          Rect.fromCenter(
+            center: center,
+            width: chip.width,
+            height: chip.height,
+          ),
           Radius.circular(chip.height / 2),
         ),
         Paint()..color = _playhead,
@@ -185,7 +197,7 @@ class _SidewaysTabPainter extends CustomPainter {
 
   void _paintDashedString(Canvas canvas, double y, double start, double end) {
     final paint = Paint()
-      ..color = _staff.withValues(alpha: 0.45)
+      ..color = neck.ink.withValues(alpha: 0.45)
       ..strokeWidth = 1.4;
     const dash = 5.0;
     const gap = 3.0;
@@ -202,11 +214,11 @@ class _SidewaysTabPainter extends CustomPainter {
       center,
       11,
       Paint()
-        ..color = _dim.withValues(alpha: 0.7)
+        ..color = neck.ink.withValues(alpha: 0.7)
         ..style = PaintingStyle.stroke
         ..strokeWidth = 1,
     );
-    _paintText(canvas, text, center, _staff, 11);
+    _paintText(canvas, text, center, neck.ink, 11);
   }
 
   void _paintFret(Canvas canvas, String text, Offset center, Color color) {
@@ -243,6 +255,8 @@ class _SidewaysTabPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _SidewaysTabPainter oldDelegate) {
-    return oldDelegate.positionMs != positionMs || oldDelegate.song != song;
+    return oldDelegate.positionMs != positionMs ||
+        oldDelegate.song != song ||
+        oldDelegate.neck != neck;
   }
 }

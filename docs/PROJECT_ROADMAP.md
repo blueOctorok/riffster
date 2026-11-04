@@ -22,6 +22,7 @@ The name is Riffster. `riffster.xyz` is registered at Namecheap (bought 2026-11-
 - No Apple Music stem splitter. A backing track from a file the player owns can wait.
 - Lava Studio is a question for Lava, not a build target. Their USB-C port talks to a computer. It does not host an iRig.
 - The fun layer, after scoring feels fair: the player's guitar is heard in the mix only when the note is right.
+- Original practice we write, such as the chord course, ships in the app. Copyrighted songs do not.
 
 ## Done
 
@@ -33,6 +34,8 @@ The name is Riffster. `riffster.xyz` is registered at Namecheap (bought 2026-11-
 - Guitar Pro import. Open reads a `.gp` file with alphaTab in a hidden web view and scrolls that part. A file with more than one guitar part asks which one to play.
 - A slider seeks anywhere in the song. Named chords are gold chips. An index barre is outlined in blue around the barre and the notes inside it.
 - Missing fingers are filled from the hand. A stack that matches the chord book uses that grip's name and fingers, so a tab that only wrote the fretted notes of an open G still reads as G. A stored finger wins. Anything the book does not know is guessed: a melody packs the frets that are played, a fast hop on one fret uses a new finger per string, and a shape wider than the hand stays hollow. A chord name from pitches appears only when they match a shape exactly.
+- Chord practice. Chords opens the book one grip at a time, easiest first, and ends on an original G D Em C change. Song returns to whatever was loaded. The fingers are the book, not a second guess.
+- The staff wears a neck: ebony (the original dark board), rosewood, or maple. A light board uses dark strings. Finger colors do not change with the wood.
 
 The checklists are in `TODOS.md`. Work top to bottom.
 
@@ -42,6 +45,6 @@ The checklists are in `TODOS.md`. Work top to bottom.
 - Windows Developer Mode is on. Flutter needs it to link plugins. The Guitar Pro reader was the first one.
 - String 1 is the top line of the tab (high E). String 6 is low E.
 - The scroll maps time to pixels: `x = playhead + (noteTime - now) * 120`.
-- Chord names and position fingers are local arithmetic on the imported note list. The chord book in `lib/music/chord_book.dart` is the shared list: import uses it, and the chord practice screen (not built yet) will show the same grips. The warm-up is not passed through that step. Claude is not wired in.
+- Chord names and position fingers are local arithmetic on the imported note list. The chord book in `lib/music/chord_book.dart` is the shared list: import uses it, and Chords on the practice screen shows the same grips. The warm-up is not passed through that step. Claude is not wired in.
 - The fingering trust check is the user's Hotel California file at `C:\Users\blaha\Documents\guitar_tabs\the-eagles-hotel_california.gp3`. A wrong finger color on that song is a failed build. Do not copy the file into the repo. The passage around frets 7, 9, 10, and 11 was checked on 2026-11-03: 9 is the middle finger, 10 is the ring, 11 is the pinky, and a fast hop on fret 7 changes finger per string. The file's six guitar parts are unnamed. The picker describes them from the notes instead of dropping a real part.
 - Proven / Provven / `resume-wallet` is a different project. Do not mix it into this folder.
