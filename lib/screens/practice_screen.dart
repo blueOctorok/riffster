@@ -2,11 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 
 import '../data/demo_song.dart';
+import '../import/guitar_pro_reader.dart';
+import '../import/open_guitar_pro.dart';
 import '../models/fretting_finger.dart';
+import '../models/tab_song.dart';
 import '../widgets/finger_colors.dart';
 import '../widgets/sideways_tab.dart';
 
-/// The practice screen. It only scrolls a song. Import and scoring come later.
+/// The practice screen. It scrolls whatever song is loaded.
 class PracticeScreen extends StatefulWidget {
   const PracticeScreen({super.key});
 
@@ -16,12 +19,15 @@ class PracticeScreen extends StatefulWidget {
 
 class _PracticeScreenState extends State<PracticeScreen>
     with SingleTickerProviderStateMixin {
+  final _reader = GuitarProReader();
   late final Ticker _ticker;
+  TabSong _song = demoSong;
   Duration _position = Duration.zero;
 
   /// Where the song was when Play was pressed. The ticker itself restarts at zero.
   Duration _resumeFrom = Duration.zero;
   bool _playing = false;
+  bool _opening = false;
 
   @override
   void initState() {
@@ -32,12 +38,13 @@ class _PracticeScreenState extends State<PracticeScreen>
   @override
   void dispose() {
     _ticker.dispose();
+    _reader.dispose();
     super.dispose();
   }
 
   void _onTick(Duration elapsed) {
     final position = _resumeFrom + elapsed;
-    final end = Duration(milliseconds: demoSong.lengthMs + 800);
+    final end = Duration(milliseconds: _song.lengthMs + 800);
     if (position >= end) {
       _ticker.stop();
       setState(() {
@@ -55,7 +62,7 @@ class _PracticeScreenState extends State<PracticeScreen>
       setState(() => _playing = false);
       return;
     }
-    final end = Duration(milliseconds: demoSong.lengthMs);
+    final end = Duration(milliseconds: _song.lengthMs);
     if (_position >= end) {
       _position = Duration.zero;
     }
@@ -64,10 +71,38 @@ class _PracticeScreenState extends State<PracticeScreen>
     setState(() => _playing = true);
   }
 
+  Future<void> _open() async {
+    if (_opening) return;
+    setState(() => _opening = true);
+    try {
+      final song = await openGuitarPro(context, _reader);
+      if (!mounted || song == null) return;
+      _ticker.stop();
+      setState(() {
+        _song = song;
+        _position = Duration.zero;
+        _resumeFrom = Duration.zero;
+        _playing = false;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      final message = switch (error) {
+        FormatException(:final message) => message,
+        StateError(:final message) => message,
+        _ => 'Could not read that file.',
+      };
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(message)),
+      );
+    } finally {
+      if (mounted) setState(() => _opening = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final clock = _clockLabel(_position);
-    final songClock = _clockLabel(Duration(milliseconds: demoSong.lengthMs));
+    final songClock = _clockLabel(Duration(milliseconds: _song.lengthMs));
 
     return Scaffold(
       body: Padding(
@@ -82,16 +117,19 @@ class _PracticeScreenState extends State<PracticeScreen>
             const SizedBox(height: 8),
             Row(
               children: [
-                Text(
-                  demoSong.title,
-                  style: const TextStyle(
-                    fontSize: 28,
-                    fontWeight: FontWeight.w600,
+                Flexible(
+                  child: Text(
+                    _song.title,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 28,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ),
                 const SizedBox(width: 16),
                 Text(
-                  '${demoSong.tempoBpm} bpm',
+                  '${_song.tempoBpm} bpm',
                   style: const TextStyle(color: Color(0xFF8A8175)),
                 ),
                 const Spacer(),
@@ -100,8 +138,13 @@ class _PracticeScreenState extends State<PracticeScreen>
                   style: const TextStyle(color: Color(0xFF8A8175)),
                 ),
                 const SizedBox(width: 16),
+                OutlinedButton(
+                  onPressed: _opening ? null : _open,
+                  child: Text(_opening ? 'Opening…' : 'Open'),
+                ),
+                const SizedBox(width: 8),
                 FilledButton(
-                  onPressed: _toggle,
+                  onPressed: _opening ? null : _toggle,
                   child: Text(_playing ? 'Pause' : 'Play'),
                 ),
               ],
@@ -119,7 +162,7 @@ class _PracticeScreenState extends State<PracticeScreen>
                   borderRadius: BorderRadius.all(Radius.circular(12)),
                 ),
                 child: SidewaysTab(
-                  song: demoSong,
+                  song: _song,
                   position: _position,
                 ),
               ),

@@ -2,7 +2,7 @@ import 'tab_note.dart';
 
 /// A song the sideways tab can scroll.
 ///
-/// This is the list a Guitar Pro file will become. The screen never
+/// This is the list a Guitar Pro file becomes. The screen never
 /// reads a .gp file itself.
 class TabSong {
   const TabSong({

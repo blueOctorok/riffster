@@ -28,8 +28,10 @@ environment:
 # the latest version available on pub.dev. To see which dependencies have newer
 # versions available, run `flutter pub outdated`.
 dependencies:
+  file_picker: ^13.3.2
   flutter:
     sdk: flutter
+  webview_windows: ^0.4.0
 
 dev_dependencies:
   flutter_test:
@@ -52,6 +54,11 @@ flutter:
   # included with your application, so that you can use the icons in
   # the material Icons class.
   uses-material-design: true
+
+  assets:
+    - assets/gp_reader/index.html
+    - assets/gp_reader/reader.js
+    - assets/gp_reader/alphaTab.min.js
 
   # To add assets to your application, add an assets section, like this:
   # assets:

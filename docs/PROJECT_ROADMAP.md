@@ -30,12 +30,14 @@ The name is Riffster. `riffster.xyz` is registered at Namecheap (bought 2026-11-
 - Sideways six-string scroll with a fixed playhead, finger-colored dots, and a short original warm-up phrase.
 - Web preview added so the screen can be opened in Chrome before Visual Studio is installed. The product target is still the Windows app.
 - Visual Studio Build Tools 2022 with the C++ workload. `flutter run -d windows` opens the warm-up as a desktop window.
+- Guitar Pro import. Open reads a `.gp` file with alphaTab in a hidden web view and scrolls that part. A file with more than one guitar part asks which one to play.
 
 The checklists are in `TODOS.md`. Work top to bottom.
 
 ## Pickup notes
 
 - Flutter SDK: `C:\Users\blaha\flutter` (stable 3.47.9). `C:\Users\blaha\flutter\bin` is on the user PATH. A terminal that was already open may still need a restart before `flutter` is found.
+- Windows Developer Mode is on. Flutter needs it to link plugins. The Guitar Pro reader was the first one.
 - String 1 is the top line of the tab (high E). String 6 is low E.
 - The scroll maps time to pixels: `x = playhead + (noteTime - now) * 120`.
 - Proven / Provven / `resume-wallet` is a different project. Do not mix it into this folder.

@@ -18,13 +18,14 @@ Check these off in order. The product decisions live in `PROJECT_ROADMAP.md`. Do
 
 ## 2. Import a Guitar Pro file
 
-- [ ] A hidden web view runs alphaTab only long enough to read the file.
-- [ ] The file becomes a `TabSong`: time, string, fret, duration, MIDI pitch.
-- [ ] If the file names a finger, use it. If it does not, leave the dot hollow. Do not guess the finger from the fret.
-- [ ] The player picks which track is theirs when the file has more than one guitar part.
-- [ ] Tempo comes from the file.
-- [ ] The practice screen scrolls that song instead of the warm-up.
-- [ ] One real `.gp` file plays through from the first note to the last.
+- [x] Turn on Windows Developer Mode (Settings, System, For developers). Flutter needs it before a plugin can be linked into the Windows app. The file reader is the first plugin.
+- [x] A hidden web view runs alphaTab only long enough to read the file.
+- [x] The file becomes a `TabSong`: time, string, fret, duration, MIDI pitch.
+- [x] If the file names a finger, use it. If it does not, leave the dot hollow. Do not guess the finger from the fret.
+- [x] The player picks which track is theirs when the file has more than one guitar part.
+- [x] Tempo comes from the file.
+- [x] The practice screen scrolls that song instead of the warm-up.
+- [x] One real `.gp` file plays through from the first note to the last. Sample: `test/fixtures/import_check.gp5`.
 
 ## 3. Score the iRig
 
