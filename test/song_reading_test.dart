@@ -48,7 +48,7 @@ void main() {
 
   test('the same fret with an open string between the notes is not a barre', () {
     // Open G. The two 3rd-fret notes have the 2nd fret and open strings
-    // between them, so one finger cannot hold both. The lone 2nd fret can.
+    // between them, so they get two fingers instead of one barre.
     final notes = assignPositionFingers([
       _note(timeMs: 0, fret: 3, midi: 43, string: 6),
       _note(timeMs: 0, fret: 2, midi: 47, string: 5),
@@ -58,9 +58,27 @@ void main() {
       _note(timeMs: 0, fret: 3, midi: 67, string: 1),
     ]);
 
-    expect(notes[0].finger, isNull);
+    // One finger cannot cover both 3rds. The low E takes the middle finger
+    // and the high e takes the ring, after the index finger on the 2nd fret.
+    expect(notes[0].finger, FrettingFinger.middle);
     expect(notes[1].finger, FrettingFinger.indexFinger);
-    expect(notes[5].finger, isNull);
+    expect(notes[5].finger, FrettingFinger.ring);
+  });
+
+  test('an open D uses index, middle, and ring on three different strings', () {
+    // G string 2nd fret, high e 2nd fret, B string 3rd fret. The two 2nds
+    // do not share a finger, because the 3rd fret sits between them.
+    final notes = assignPositionFingers([
+      _note(timeMs: 0, fret: 2, midi: 66, string: 1),
+      _note(timeMs: 0, fret: 3, midi: 62, string: 2),
+      _note(timeMs: 0, fret: 2, midi: 57, string: 3),
+      _note(timeMs: 0, fret: 0, midi: 50, string: 4),
+    ]);
+
+    expect(notes[0].finger, FrettingFinger.middle);
+    expect(notes[1].finger, FrettingFinger.ring);
+    expect(notes[2].finger, FrettingFinger.indexFinger);
+    expect(notes[3].finger, isNull);
   });
 
   test('a stack wider than four frets is left hollow', () {

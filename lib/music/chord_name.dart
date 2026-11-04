@@ -1,4 +1,5 @@
 import '../models/tab_note.dart';
+import 'chord_book.dart';
 
 const _pitchNames = [
   'C',
@@ -36,11 +37,19 @@ const _qualities = <({String suffix, Set<int> intervals})>[
 ///
 /// Octaves collapse, so two Cs and an E and a G are still C major. The
 /// lowest note is the bass. When the bass is not the root, the name is
-/// written "Am/C".
+/// written "Am/C". Pitches have to match a quality exactly. When they do
+/// not, a chord-book grip can still name the stack. That is how a tab that
+/// only wrote the fretted notes of an open G still reads as G.
 String? chordName(Iterable<TabNote> sounding) {
   final notes = sounding.toList();
   if (notes.length < 2) return null;
 
+  final fromPitches = _nameFromPitches(notes);
+  if (fromPitches != null) return fromPitches;
+  return matchingGrip(notes)?.name;
+}
+
+String? _nameFromPitches(List<TabNote> notes) {
   final classes = notes.map((note) => note.midi % 12).toSet();
   if (classes.length < 2) return null;
 

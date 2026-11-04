@@ -1,5 +1,6 @@
 import '../models/fretting_finger.dart';
 import '../models/tab_note.dart';
+import 'chord_book.dart';
 
 const _fingersByOffset = <FrettingFinger>[
   FrettingFinger.indexFinger,
@@ -18,14 +19,17 @@ const _handMemoryMs = 1200;
 
 /// Fills fingers the file left blank.
 ///
-/// A chord uses one finger per fret, counted from the lowest fret, and two
-/// notes share that finger only when a barre can really hold them. A melody
-/// is different: an empty fret is a small reach, so the next finger takes
-/// the next note that is actually played. That keeps the pinky off a fret
-/// that sits one fret above the middle finger. A fast hop across strings on
-/// the same fret gives each string its own finger, because one finger cannot
-/// jump and come back at that speed. A stored finger is kept. Open strings
-/// stay hollow. A shape the hand cannot cover stays hollow.
+/// A chord the book knows takes that grip's fingers, so an open G in a
+/// song is the same hand the practice screen will teach. Anything the book
+/// does not know gives the lower strings the earlier fingers. Two notes
+/// share a finger only when that finger can really hold both, or when the
+/// lowest fret is a wide barre. A melody is different: an empty fret is a
+/// small reach, so the next finger takes the next note that is actually
+/// played. That keeps the pinky off a fret that sits one fret above the
+/// middle finger. A fast hop across strings on the same fret gives each
+/// string its own finger, because one finger cannot jump and come back at
+/// that speed. A stored finger is kept. Open strings stay hollow. A shape
+/// the hand cannot cover stays hollow.
 List<TabNote> assignPositionFingers(List<TabNote> notes) {
   if (notes.isEmpty) return notes;
 
@@ -105,19 +109,116 @@ bool _isChord(List<TabNote> notes, List<int> indexes) {
 }
 
 void _assignChord(List<TabNote> notes, List<int> indexes, List<FrettingFinger?> assigned) {
-  final frets = _fretsMissingFinger(notes, indexes);
-  if (frets.isEmpty || _span(frets) > 3) return;
+  final pending = [
+    for (final index in indexes)
+      if (notes[index].finger == null && notes[index].fret > 0) index,
+  ];
+  if (pending.isEmpty) return;
 
-  final indexFret = frets.reduce((a, b) => a < b ? a : b);
-  final beatNotes = [for (final index in indexes) notes[index]];
-  final blocked = _fretsThatCannotShare(beatNotes);
-  for (final index in indexes) {
-    final note = notes[index];
-    if (note.finger != null || note.fret == 0 || blocked.contains(note.fret)) continue;
-    final offset = note.fret - indexFret;
-    if (offset < 0 || offset > 3) continue;
-    assigned[index] = _fingersByOffset[offset];
+  // A known grip wins over the guess. The book is also what chord practice
+  // will show, so the song and the practice screen stay on one hand.
+  final grip = matchingGrip([for (final index in indexes) notes[index]]);
+  if (grip != null) {
+    for (final index in pending) {
+      final finger = grip.fingerOn(notes[index].string);
+      if (finger != null) assigned[index] = finger;
+    }
+    return;
   }
+
+  if (_span([for (final index in pending) notes[index].fret]) > 4) return;
+
+  // Each fretted note starts alone. Notes join a finger only when every
+  // string between them is the same fret. A higher fret in between, as in
+  // an open D, means two fingers.
+  var holds = [for (final index in pending) <int>[index]];
+  holds = _mergeMatchingFrets(notes, indexes, holds);
+  final lowest = pending.map((index) => notes[index].fret).reduce((a, b) => a < b ? a : b);
+  holds = _mergeLowestBarre(notes, holds, lowest, wideOnly: true);
+  // Five different frets and only four fingers: the lowest fret becomes
+  // the barre so the rest of the chord still fits.
+  if (holds.length > 4) {
+    holds = _mergeLowestBarre(notes, holds, lowest, wideOnly: false);
+  }
+
+  holds.sort((a, b) {
+    final fretOrder = notes[a.first].fret.compareTo(notes[b.first].fret);
+    if (fretOrder != 0) return fretOrder;
+    return _bassString(notes, b).compareTo(_bassString(notes, a));
+  });
+
+  for (var i = 0; i < holds.length && i < 4; i++) {
+    for (final index in holds[i]) {
+      assigned[index] = _fingersByOffset[i];
+    }
+  }
+}
+
+/// Joins notes a single finger can hold: same fret, and no different fret
+/// sounding on a string between them.
+List<List<int>> _mergeMatchingFrets(
+  List<TabNote> notes,
+  List<int> chord,
+  List<List<int>> holds,
+) {
+  var merged = holds;
+  var changed = true;
+  while (changed) {
+    changed = false;
+    for (var i = 0; i < merged.length; i++) {
+      for (var j = i + 1; j < merged.length; j++) {
+        final together = [...merged[i], ...merged[j]];
+        if (!_sameFretWithClearGap(notes, chord, together)) continue;
+        merged = [
+          for (var k = 0; k < merged.length; k++)
+            if (k == i) together else if (k != j) merged[k],
+        ];
+        changed = true;
+        break;
+      }
+      if (changed) break;
+    }
+  }
+  return merged;
+}
+
+bool _sameFretWithClearGap(List<TabNote> notes, List<int> chord, List<int> hold) {
+  final fret = notes[hold.first].fret;
+  if (hold.any((index) => notes[index].fret != fret)) return false;
+  final strings = hold.map((index) => notes[index].string).toList()..sort();
+  for (var string = strings.first + 1; string < strings.last; string++) {
+    final between = chord.where((index) => notes[index].string == string);
+    if (between.any((index) => notes[index].fret != fret)) return false;
+  }
+  return true;
+}
+
+/// The lowest fret of a wide chord is an index barre, higher notes and all.
+/// [wideOnly] keeps a small shape, such as open D, on separate fingers.
+List<List<int>> _mergeLowestBarre(
+  List<TabNote> notes,
+  List<List<int>> holds,
+  int lowest, {
+  required bool wideOnly,
+}) {
+  final barre = <int>[];
+  final rest = <List<int>>[];
+  for (final hold in holds) {
+    if (notes[hold.first].fret == lowest) {
+      barre.addAll(hold);
+    } else {
+      rest.add(hold);
+    }
+  }
+  if (barre.length < 2) return holds;
+  final strings = barre.map((index) => notes[index].string);
+  final span = strings.reduce((a, b) => a > b ? a : b) - strings.reduce((a, b) => a < b ? a : b);
+  if (wideOnly && span < 3) return holds;
+  return [barre, ...rest];
+}
+
+int _bassString(List<TabNote> notes, List<int> hold) {
+  return hold.map((index) => notes[index].string).reduce((a, b) => a > b ? a : b);
 }
 
 /// Lowest fret is the index finger. The next played fret uses the next
@@ -197,35 +298,6 @@ void _spreadRun(List<TabNote> notes, List<int> run, List<FrettingFinger?> assign
     final next = cursor + direction;
     if (next >= 0 && next <= 3) cursor = next;
   }
-}
-
-List<int> _fretsMissingFinger(List<TabNote> notes, List<int> indexes) {
-  return [
-    for (final index in indexes)
-      if (notes[index].finger == null && notes[index].fret > 0) notes[index].fret,
-  ];
-}
-
-/// A fret one finger would have to play twice, with a gap it cannot cover.
-Set<int> _fretsThatCannotShare(List<TabNote> beatNotes) {
-  final byFret = <int, List<TabNote>>{};
-  for (final note in beatNotes) {
-    if (note.finger != null || note.fret == 0) continue;
-    byFret.putIfAbsent(note.fret, () => []).add(note);
-  }
-
-  final blocked = <int>{};
-  for (final entry in byFret.entries) {
-    final held = entry.value..sort((a, b) => a.string.compareTo(b.string));
-    if (held.length < 2) continue;
-    for (var i = 0; i < held.length - 1; i++) {
-      for (var string = held[i].string + 1; string < held[i + 1].string; string++) {
-        final between = beatNotes.where((note) => note.string == string);
-        if (between.any((note) => note.fret < entry.key)) blocked.add(entry.key);
-      }
-    }
-  }
-  return blocked;
 }
 
 int _span(List<int> frets) {

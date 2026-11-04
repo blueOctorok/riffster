@@ -1,6 +1,7 @@
 import '../models/fretting_finger.dart';
 import '../models/tab_note.dart';
 import '../models/tab_song.dart';
+import '../music/part_names.dart';
 import '../music/position_fingering.dart';
 
 /// A Guitar Pro file after alphaTab has turned it into plain numbers.
@@ -43,7 +44,7 @@ class ImportedScore {
     return ImportedScore(
       title: title is String ? title.trim() : '',
       tempoBpm: tempo is num && tempo > 0 ? tempo.round() : 120,
-      tracks: tracks,
+      tracks: namePlayableParts(tracks),
     );
   }
 

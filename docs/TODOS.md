@@ -21,11 +21,18 @@ Check these off in order. The product decisions live in `PROJECT_ROADMAP.md`. Do
 - [x] Turn on Windows Developer Mode (Settings, System, For developers). Flutter needs it before a plugin can be linked into the Windows app. The file reader is the first plugin.
 - [x] A hidden web view runs alphaTab only long enough to read the file.
 - [x] The file becomes a `TabSong`: time, string, fret, duration, MIDI pitch.
-- [x] If the file names a finger, use it. A chord fills a missing finger one per fret from the lowest, and shares a fret only as a barre. A melody packs the frets that are played, and a fast hop across strings on one fret gets a new finger per string. A wider shape stays hollow. Notes that sound together get a chord name only when the pitches match a known shape exactly.
-- [x] The player picks which track is theirs when the file has more than one guitar part.
+- [x] If the file names a finger, use it. A stack that matches a chord-book grip uses that grip's name and fingers. Open strings the tab left out still count when the grip has three or more fretted notes, which is how the written 3-2-3 shape is named G. Anything else fills a missing finger from the shape. A melody packs the frets that are played, and a fast hop across strings on one fret gets a new finger per string. A wider shape stays hollow. A chord name from pitches is used only when they match a shape exactly.
+- [x] The player picks which track is theirs when the file has more than one guitar part. A name from the file is kept. "Track 1" is replaced from the notes: single notes, chords, two notes, or a harmony. An unnamed exact copy is left out.
 - [x] Tempo comes from the file.
 - [x] The practice screen scrolls that song instead of the warm-up.
 - [x] One real `.gp` file plays through from the first note to the last. Sample: `test/fixtures/import_check.gp5`.
+
+## Chord book
+
+One list of grips: the name, the fret on each string, and the finger on each fret. Import reads it, and chord practice will read the same list. A finger learned in practice is the finger a song shows.
+
+- [x] The book holds the common open chords plus the grips this kind of file already uses (open G, D, F#7, Em7, and Bm, including the barre Bm). A matching stack takes that name and those fingers. A finger stored in the file still wins.
+- [ ] Chord practice shows one grip at a time on the staff. Play starts there later, once the iRig can hear a strum.
 
 ## 3. Score the iRig
 
@@ -71,5 +78,5 @@ The domain `riffster.xyz` is already registered at Namecheap. Build the page onl
 
 - A song catalog, including Beatles or Led Zeppelin files shipped by us.
 - Blockchain, a token, or an NFT.
-- Lessons, trophies, or a game highway.
+- A lesson course, trophies, or a game highway. Chord practice is the chord book on the staff, not a course.
 - Accounts and a hosted database.

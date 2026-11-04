@@ -29,6 +29,10 @@ class _PracticeScreenState extends State<PracticeScreen>
   bool _playing = false;
   bool _opening = false;
 
+  /// Play was running when the slider was grabbed, so letting go continues
+  /// from the new spot instead of from where the ticker had been.
+  bool _resumeAfterScrub = false;
+
   @override
   void initState() {
     super.initState();
@@ -54,6 +58,25 @@ class _PracticeScreenState extends State<PracticeScreen>
       return;
     }
     setState(() => _position = position);
+  }
+
+  void _scrubStarted() {
+    _resumeAfterScrub = _playing;
+    if (_playing) _ticker.stop();
+  }
+
+  void _scrubTo(double milliseconds) {
+    final length = _song.lengthMs;
+    final next = milliseconds.round().clamp(0, length).toInt();
+    setState(() => _position = Duration(milliseconds: next));
+  }
+
+  void _scrubEnded(double milliseconds) {
+    _scrubTo(milliseconds);
+    if (!_resumeAfterScrub) return;
+    _resumeFrom = _position;
+    _ticker.start();
+    _resumeAfterScrub = false;
   }
 
   void _toggle() {
@@ -166,6 +189,18 @@ class _PracticeScreenState extends State<PracticeScreen>
                   position: _position,
                 ),
               ),
+            ),
+            const SizedBox(height: 8),
+            Slider(
+              value: _position.inMilliseconds
+                  .clamp(0, _song.lengthMs)
+                  .toDouble(),
+              max: _song.lengthMs <= 0 ? 1 : _song.lengthMs.toDouble(),
+              activeColor: const Color(0xFFE4B15A),
+              inactiveColor: const Color(0xFF3A342C),
+              onChangeStart: (_) => _scrubStarted(),
+              onChanged: _opening ? null : _scrubTo,
+              onChangeEnd: _scrubEnded,
             ),
           ],
         ),
