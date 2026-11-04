@@ -1,6 +1,7 @@
 import '../models/fretting_finger.dart';
 import '../models/tab_note.dart';
 import '../models/tab_song.dart';
+import '../music/position_fingering.dart';
 
 /// A Guitar Pro file after alphaTab has turned it into plain numbers.
 class ImportedScore {
@@ -54,7 +55,7 @@ class ImportedScore {
     return TabSong(
       title: showTrack ? '$songTitle — ${track.name}' : songTitle,
       tempoBpm: tempoBpm,
-      notes: track.notes,
+      notes: assignPositionFingers(track.notes),
     );
   }
 }

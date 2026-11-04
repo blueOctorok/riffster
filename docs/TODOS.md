@@ -21,7 +21,7 @@ Check these off in order. The product decisions live in `PROJECT_ROADMAP.md`. Do
 - [x] Turn on Windows Developer Mode (Settings, System, For developers). Flutter needs it before a plugin can be linked into the Windows app. The file reader is the first plugin.
 - [x] A hidden web view runs alphaTab only long enough to read the file.
 - [x] The file becomes a `TabSong`: time, string, fret, duration, MIDI pitch.
-- [x] If the file names a finger, use it. If it does not, leave the dot hollow. Do not guess the finger from the fret.
+- [x] If the file names a finger, use it. A chord fills a missing finger one per fret from the lowest, and shares a fret only as a barre. A melody packs the frets that are played, and a fast hop across strings on one fret gets a new finger per string. A wider shape stays hollow. Notes that sound together get a chord name only when the pitches match a known shape exactly.
 - [x] The player picks which track is theirs when the file has more than one guitar part.
 - [x] Tempo comes from the file.
 - [x] The practice screen scrolls that song instead of the warm-up.

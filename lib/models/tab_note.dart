@@ -26,7 +26,19 @@ class TabNote {
   /// MIDI note number. The iRig score will compare a pitch against this.
   final int midi;
 
-  /// Null on an open string. The same fret can be a different finger
-  /// higher up the neck, so this is stored on the note rather than guessed.
+  /// Null on an open string, and null when nobody has decided a finger yet.
+  /// The same fret can be a different finger higher up the neck, so a fret
+  /// number is never turned into a finger by itself.
   final FrettingFinger? finger;
+
+  TabNote withFinger(FrettingFinger finger) {
+    return TabNote(
+      timeMs: timeMs,
+      string: string,
+      fret: fret,
+      durationMs: durationMs,
+      midi: midi,
+      finger: finger,
+    );
+  }
 }

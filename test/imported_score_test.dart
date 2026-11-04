@@ -46,7 +46,9 @@ void main() {
     expect(song.tempoBpm, 100);
     expect(song.notes[0].finger, isNull);
     expect(song.notes[1].finger, FrettingFinger.pinky);
-    expect(song.notes[2].finger, isNull);
+    // Fret 2 had no finger. It is alone, so the hand moves there and the
+    // index finger takes it.
+    expect(song.notes[2].finger, FrettingFinger.indexFinger);
     expect(song.lengthMs, 1800);
   });
 }

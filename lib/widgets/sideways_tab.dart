@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
+import '../models/tab_note.dart';
 import '../models/tab_song.dart';
+import '../music/chord_name.dart';
 import 'finger_colors.dart';
 
 /// Six string lines. Notes move from the right into a fixed playhead.
@@ -42,8 +44,10 @@ class _SidewaysTabPainter extends CustomPainter {
   static const _playheadX = 64.0;
 
   /// Fixed staff, not stretched to the window. Six strings stay one short band.
+  /// The top band is reserved for a chord name, so the strings do not move.
   static const stringGap = 32.0;
-  static const staffHeight = stringGap * 5 + 28;
+  static const chordLabelSpace = 20.0;
+  static const staffHeight = chordLabelSpace + stringGap * 5 + 28;
 
   /// A quarter note at 100 bpm (600 ms) lands about 72 px to the right.
   static const _pixelsPerSecond = 120.0;
@@ -54,7 +58,7 @@ class _SidewaysTabPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final top = (size.height - stringGap * 5) / 2;
+    final top = chordLabelSpace + (size.height - chordLabelSpace - stringGap * 5) / 2;
 
     for (var i = 0; i < 6; i++) {
       final y = top + stringGap * i;
@@ -104,6 +108,31 @@ class _SidewaysTabPainter extends CustomPainter {
             : fingerNumberColor[finger]!;
         _paintFret(canvas, '${note.fret}', Offset(x, y), number);
       }
+    }
+
+    _paintChordNames(canvas, size, top);
+  }
+
+  /// A name sits above a stack of notes that share a time. A single melody
+  /// note is not a chord. Names closer than a short gap would collide, so
+  /// the later one waits for the scroll to separate them.
+  void _paintChordNames(Canvas canvas, Size size, double stringTop) {
+    final grouped = <int, List<TabNote>>{};
+    for (final note in song.notes) {
+      grouped.putIfAbsent(note.timeMs, () => []).add(note);
+    }
+    final times = grouped.keys.toList()..sort();
+    var lastLabelX = -100.0;
+    for (final time in times) {
+      final sounding = grouped[time]!;
+      if (sounding.length < 2) continue;
+      final name = chordName(sounding);
+      if (name == null) continue;
+      final x = _playheadX + (time - positionMs) / 1000 * _pixelsPerSecond;
+      if (x < 36 || x > size.width - 8) continue;
+      if (x - lastLabelX < 34) continue;
+      lastLabelX = x;
+      _paintText(canvas, name, Offset(x, stringTop - 16), _playhead, 12);
     }
   }
 
