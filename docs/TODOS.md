@@ -37,7 +37,9 @@ One list of grips: the name, the fret on each string, and the finger on each fre
 
 ## 3. Score the iRig
 
-- [ ] The USB-C iRig is the input. The app can also play a click or the tab's other tracks.
+- [x] A single note is hit, miss, early, or late from its MIDI pitch and the clock. The same pitch on another string still hits. A chord is scored from the strum only. The window is 80 ms on time, and 250 ms before it counts as a different beat.
+- [x] The app listens to the guitar input. The Rocksmith Real Tone cable is chosen when Windows lists Rocksmith USB Guitar Adapter, including when it is plugged in after the app is open, and that signal plays out the PC speakers. An iRig recording device is the fallback. A PC microphone is never played back, because that loop howls. Speakers (iRig USB) alone is not the guitar input. Rocksmith's song files stay closed. A level bar shows the signal. Play draws the result on the note: green hit, gold early or late, rose slash for a miss. A note that scrolls past with no pluck is a miss. A click and the other tracks are not built.
+- [ ] The USB-C iRig is confirmed on a real guitar. The app can also play a click or the tab's other tracks.
 - [ ] Listening and playback happen at the same time. A tuner-style "recording only" session is not enough.
 - [ ] Each snippet of guitar becomes one pitch.
 - [ ] A single note at the playhead is hit, miss, early, or late.
@@ -53,7 +55,7 @@ One list of grips: the name, the fret on each string, and the finger on each fre
 ## 5. Remember the last good take
 
 - [ ] A personal best for each song is saved in a file next to the app.
-- [ ] No account, no database, no server.
+- [ ] No account and no database for those scores. The paid generator on `riffster.xyz` is separate.
 
 ## 6. Phones, after the PC version feels fair
 
@@ -65,9 +67,29 @@ One list of grips: the name, the fret on each string, and the finger on each fre
 
 The domain `riffster.xyz` is already registered at Namecheap. Build the page only after a Windows build exists to link to.
 
-- [ ] A short Next.js page on Vercel: what Riffster is, and a download button. The site is not the Flutter app.
+- [ ] A short Next.js page on Vercel: what Riffster is, and a download button. The site is not the Flutter app. The paid generator will later use a server-only route on this same site. The Anthropic key stays in that server setting and is never sent to the browser or the `.exe`.
 - [ ] The `.exe` lives on a GitHub release. The page links to that file. Do not commit the build into the repo.
 - [ ] Point the Namecheap DNS for `riffster.xyz` at Vercel when the page is ready.
+
+## Songwriting
+
+Practice is the screen. Songwriting is how a new note list gets onto that screen. Two modes, neither started. Both wait behind a fair iRig score. A generated song and a hand-built song practice the same way: hit, miss, early, late, and a hit streak in the local score file.
+
+### Generator mode
+
+Paid. The only online piece. Price and accounts come later, after `riffster.xyz` is up.
+
+- [ ] The player describes the feel ("a song that sounds like this song"), names chords that must be in it, and picks beginner, intermediate, or advanced.
+- [ ] Claude returns an original note list in that feel. The staff plays it with the same chord names and finger colors as an imported song. The result is not a copy of the named song.
+- [ ] The Windows app calls `riffster.xyz`. That site holds the Anthropic key and checks the purchase. The key is not in the app.
+
+### Builder mode
+
+Local. No Claude and no account.
+
+- [ ] Drag chords from the book into an order. The name and the fingers come from that same grip.
+- [ ] Set the time signature, then drop single notes or a riff. A 12th-fret note is one dot. The player chooses how long it rings.
+- [ ] Name the song and practice it. A run of hits is a streak. The streak stays in the local score file.
 
 ## Later, only if we still want them
 
@@ -80,4 +102,4 @@ The domain `riffster.xyz` is already registered at Namecheap. Build the page onl
 - A song catalog, including Beatles or Led Zeppelin files shipped by us.
 - Blockchain, a token, or an NFT.
 - Trophies or a game highway. Original chord practice is included. A course built from someone else's songs is not.
-- Accounts and a hosted database.
+- An account or a hosted database for practice scores. Those stay in a file on the machine. The paid generator is the one online feature, and it lives on `riffster.xyz`.

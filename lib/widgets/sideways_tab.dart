@@ -5,6 +5,7 @@ import '../models/tab_note.dart';
 import '../models/tab_song.dart';
 import '../music/barre.dart';
 import '../music/chord_name.dart';
+import '../music/score_note.dart';
 import '../theme/neck_theme.dart';
 import 'finger_colors.dart';
 
@@ -15,6 +16,7 @@ class SidewaysTab extends StatelessWidget {
     required this.song,
     required this.position,
     required this.neck,
+    required this.marks,
   });
 
   /// Height of the staff band. The screen must not stretch past this.
@@ -24,6 +26,9 @@ class SidewaysTab extends StatelessWidget {
   final Duration position;
   final NeckTheme neck;
 
+  /// The playhead's decision for a note, once that note has been judged.
+  final Map<TabNote, ScoreMark> marks;
+
   @override
   Widget build(BuildContext context) {
     return CustomPaint(
@@ -31,6 +36,7 @@ class SidewaysTab extends StatelessWidget {
         song: song,
         positionMs: position.inMilliseconds,
         neck: neck,
+        marks: marks,
       ),
       child: const SizedBox.expand(),
     );
@@ -42,11 +48,13 @@ class _SidewaysTabPainter extends CustomPainter {
     required this.song,
     required this.positionMs,
     required this.neck,
+    required this.marks,
   });
 
   final TabSong song;
   final int positionMs;
   final NeckTheme neck;
+  final Map<TabNote, ScoreMark> marks;
 
   static const _stringNames = ['e', 'B', 'G', 'D', 'A', 'E'];
   static const _playheadX = 64.0;
@@ -100,10 +108,14 @@ class _SidewaysTabPainter extends CustomPainter {
       if (x < 40 || x > size.width + 20) continue;
 
       final y = top + stringGap * (note.string - 1);
-      final passed = note.timeMs < positionMs - 70;
+      final mark = marks[note];
+      // Still inside the window: keep the finger color. A miss fades.
+      // A hit stays bright so the result is readable after it passes.
       final finger = note.finger;
       final base = finger == null ? neck.ink : fingerColor[finger]!;
-      final color = passed ? base.withValues(alpha: 0.4) : base;
+      final color = mark == ScoreMark.miss
+          ? base.withValues(alpha: 0.45)
+          : base;
       if (finger == null) {
         // The fill matches the wood, so an open note reads as a ring
         // rather than a dot sitting on a different color.
@@ -119,14 +131,43 @@ class _SidewaysTabPainter extends CustomPainter {
         _paintFret(canvas, '${note.fret}', Offset(x, y), color);
       } else {
         canvas.drawCircle(Offset(x, y), 11, Paint()..color = color);
-        final number = passed
-            ? fingerNumberColor[finger]!.withValues(alpha: 0.45)
+        final number = mark == ScoreMark.miss
+            ? fingerNumberColor[finger]!.withValues(alpha: 0.7)
             : fingerNumberColor[finger]!;
         _paintFret(canvas, '${note.fret}', Offset(x, y), number);
       }
+      if (mark != null) _paintMark(canvas, Offset(x, y), mark);
     }
 
     _paintChordNames(canvas, size, top, grouped);
+  }
+
+  /// A ring outside the finger color. Green is a hit, gold is early or
+  /// late, and rose with a slash is a note that went by unplayed.
+  void _paintMark(Canvas canvas, Offset center, ScoreMark mark) {
+    final color = switch (mark) {
+      ScoreMark.hit => const Color(0xFF3DDC6E),
+      ScoreMark.early || ScoreMark.late => const Color(0xFFE4B15A),
+      ScoreMark.miss => const Color(0xFFE85D75),
+    };
+    canvas.drawCircle(
+      center,
+      15,
+      Paint()
+        ..color = color
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2.5,
+    );
+    if (mark == ScoreMark.miss) {
+      canvas.drawLine(
+        center + const Offset(-7, -7),
+        center + const Offset(7, 7),
+        Paint()
+          ..color = color
+          ..strokeWidth = 2
+          ..strokeCap = StrokeCap.round,
+      );
+    }
   }
 
   double _xFor(int timeMs) {
@@ -257,6 +298,15 @@ class _SidewaysTabPainter extends CustomPainter {
   bool shouldRepaint(covariant _SidewaysTabPainter oldDelegate) {
     return oldDelegate.positionMs != positionMs ||
         oldDelegate.song != song ||
-        oldDelegate.neck != neck;
+        oldDelegate.neck != neck ||
+        !_sameMarks(oldDelegate.marks, marks);
   }
+}
+
+bool _sameMarks(Map<TabNote, ScoreMark> a, Map<TabNote, ScoreMark> b) {
+  if (a.length != b.length) return false;
+  for (final entry in a.entries) {
+    if (b[entry.key] != entry.value) return false;
+  }
+  return true;
 }

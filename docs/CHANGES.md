@@ -1,5 +1,43 @@
 # Changes
 
+## 2026-11-06 — Shorter delay from the string to the speaker
+
+The gap was a queue. Windows' recorder holds a chunk of the guitar before it hands the bytes over, and the speaker holds another chunk so a gap does not click. The published recorder does not offer a short capture buffer, so `third_party/record_windows` is that package with one change: Media Foundation is asked for low latency, which keeps about one device period instead of a long pile. The speaker mix is 256 frames (about 5 ms at 48 kHz), it waits 5 ms before the first sound, and a pile past about 40 ms is dropped. A hardware jack or the Gibson app can still be shorter, because those talk to the device more directly. The 50 ms scoring guess is unchanged until a real strum shows whether notes land early. After this change the delay was smaller and still audible. The cable was plugged into a USB dock on the laptop. A dock adds a hub hop of a couple of milliseconds, not the remaining gap. The rest is still the shared Windows path: one device period in, the trip through the app, and one period back out the speakers. A port on the laptop itself is the check. Going shorter than that means taking the cable over in exclusive mode, which is not built yet.
+
+## 2026-11-06 — The Rocksmith cable is a guitar input
+
+The Real Tone cable shows up in Windows as Rocksmith USB Guitar Adapter. The app listens to that recording device and plays it out the PC speakers, because the cable has no headphone jack. A cable plugged in after the window opens is noticed within a couple of seconds. The first device list is taken at startup and does not update on its own. A room mic is still never played back. An iRig input is used only when that cable is absent. Rocksmith's song files stay closed.
+
+## 2026-11-06 — Songwriting, written down only
+
+Decided, not built. Riffster stays a practice app and also becomes a songwriter. Generator mode asks for a feel, chords that must appear, and beginner, intermediate, or advanced. Claude returns an original note list, not a copy of the named song. Builder mode is local: drag chords into order, set the time signature, and drop single notes or a riff. Both practice on the same staff, with a hit streak in the local score file. Neither is built ahead of a fair iRig score.
+
+## 2026-11-04 — The iRig speaker is not the guitar input
+
+Windows can start Speakers (iRig USB) while the recording side of that same device stays off. The app only listens to recording devices, so it used to say the iRig was missing. It now says the speaker is connected and the guitar input never started. That input needs IK's iRig USB ASIO driver for Windows. The same iRig works on an iPad, so the hardware is fine. The serial for registration was only on the card in the box, not on the device and not in the USB id. IK support gives that driver without the card. The firmware updater is a different tool and does not see this device. The generic USB audio driver on this PC did not start the guitar input.
+
+## 2026-11-04 — The PC mic is not played back
+
+Playing the laptop microphone out the speakers made it hear itself. The playback buffer was allowed to fill, so the voice returned later and later, then the loop howled. The speaker now opens only when the input is an iRig. If that guitar buffer starts to pile up, the old audio is dropped and the newest chunk is kept.
+
+## 2026-11-04 — The guitar comes out the speaker, and misses show on the staff
+
+The iRig jack plays audio the computer sends to that device. Listening alone never moved the speaker. The same guitar bytes are now played back there, with voice effects still off. A level bar jumps when a string sends a signal. If Windows has no live device named iRig, the line says the iRig is not connected and lists the inputs it did find. Look again rescans after the cable is plugged in. On this machine the remembered iRig USB was present in Windows but not connected.
+
+A pluck still judges the nearest written notes. The result is drawn on the note: a green ring is a hit, gold is early or late, and a rose ring with a slash is a miss. Silence has no pitch, so a note that passes the playhead by more than 250 ms with no pluck is marked missed by the clock. A late right note can still replace that miss. Speaker can be turned off if the iRig is already monitoring and the two copies slap.
+
+## 2026-11-04 — The app listens to the guitar
+
+The input stream is 16-bit mono. Echo cancel, noise suppression, and auto gain stay off, because those are voice effects and they bend a fretted note. A window of samples is turned into a MIDI note by finding the first repeating period, so a loud octave overtone does not replace the note that was fretted. The pitch is shown under the finger colors. While Play is running, that pitch is scored against the nearest written notes. The buffer arrives late, so the score looks 50 ms earlier than the playhead. That guess needs a real guitar before it is trusted. The iRig headphone jack is still how the player hears themselves.
+
+## 2026-11-04 — Scoring rules, before the iRig
+
+The playhead can judge one sound. A single note hits when the MIDI pitch matches and the attack is within 80 ms. The same pitch on another string counts, because the mic cannot see the fret. Early and late stay inside 250 ms. Farther away is a miss. Two or more notes at the same moment are a chord, and only the strum time is checked. No audio input is wired, so the practice screen does not show a score yet.
+
+## 2026-11-04 — Paid song generator, written down only
+
+Decided, not built. A player will pick parameters and describe a feel ("now make a song that sounds like this song"). Claude returns an original note list, and the staff plays it. The named song is inspiration, not a chart to copy. `riffster.xyz` will hold the Anthropic key in a server-only setting. The Windows app calls the site. The key does not go in the page or the `.exe`. Parameter list, price, and accounts wait. This stays behind the iRig scorer.
+
 ## 2026-11-03 — Project start
 
 Scaffolded the Windows Flutter app and the first sideways tab.

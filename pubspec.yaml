@@ -31,7 +31,15 @@ dependencies:
   file_picker: ^13.3.2
   flutter:
     sdk: flutter
+  flutter_soloud: ^5.2.2
+  record: ^7.1.2
   webview_windows: ^0.4.0
+
+# The published Windows recorder holds a long capture buffer. This copy asks
+# Media Foundation for a short one, so the speaker stays closer to the string.
+dependency_overrides:
+  record_windows:
+    path: third_party/record_windows
 
 dev_dependencies:
   flutter_test:
