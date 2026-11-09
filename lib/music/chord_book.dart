@@ -1,6 +1,16 @@
 import '../models/fretting_finger.dart';
 import '../models/tab_note.dart';
 
+/// How far ahead of the playhead a practice chord is drawn, so the line
+/// is not sitting on the dots while you look at the shape.
+const chordLeadMs = 500;
+
+/// How long a practice chord rings before the next one, until you drag it.
+const chordHoldMs = 2000;
+
+/// Open-string MIDI numbers, staff string 1 (high e) through string 6.
+const openStringMidi = [64, 59, 55, 50, 45, 40];
+
 /// One grip a player can hold, and the name that grip goes by.
 ///
 /// [frets] and [fingers] run from staff string 1 (high e) to string 6
@@ -159,4 +169,22 @@ int _frettedCount(ChordGrip grip) {
     if (fret != null && fret > 0) count++;
   }
   return count;
+}
+
+/// The notes a grip sounds at one moment. Open strings are included.
+/// A muted string (a null fret) is left out, so the scorer does not
+/// wait for a string the shape does not play.
+List<TabNote> notesForGrip(ChordGrip grip, int timeMs, int durationMs) {
+  return [
+    for (var string = 1; string <= 6; string++)
+      if (grip.frets[string - 1] != null)
+        TabNote(
+          timeMs: timeMs,
+          string: string,
+          fret: grip.frets[string - 1]!,
+          durationMs: durationMs,
+          midi: openStringMidi[string - 1] + grip.frets[string - 1]!,
+          finger: grip.frets[string - 1] == 0 ? null : grip.fingerOn(string),
+        ),
+  ];
 }

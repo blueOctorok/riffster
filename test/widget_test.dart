@@ -5,6 +5,11 @@ import 'package:riffster/theme/neck_theme.dart';
 
 void main() {
   testWidgets('practice screen shows the demo song', (tester) async {
+    tester.view.physicalSize = const Size(1280, 720);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
     await tester.pumpWidget(const RiffsterApp());
 
     expect(find.text('Riffster'), findsOneWidget);
@@ -19,47 +24,66 @@ void main() {
   });
 
   testWidgets('the slider jumps to a later part of the song', (tester) async {
+    tester.view.physicalSize = const Size(1280, 720);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
     await tester.pumpWidget(const RiffsterApp());
 
     expect(find.text('0:00 / 0:04'), findsOneWidget);
 
-    await tester.drag(find.byType(Slider), const Offset(500, 0));
+    await tester.drag(find.byKey(const Key('position')), const Offset(500, 0));
     await tester.pump();
 
     expect(find.text('0:00 / 0:04'), findsNothing);
     expect(find.textContaining('/ 0:04'), findsOneWidget);
   });
 
-  testWidgets(
-    'the chord course steps through grips and comes back to the song',
-    (tester) async {
-      tester.view.physicalSize = const Size(1400, 900);
-      tester.view.devicePixelRatio = 1;
-      addTearDown(tester.view.resetPhysicalSize);
-      addTearDown(tester.view.resetDevicePixelRatio);
+  testWidgets('chords lays every grip out and drops one on the staff', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1280, 720);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
 
-      await tester.pumpWidget(const RiffsterApp());
-      await tester.tap(find.text('Chords'));
-      await tester.pump();
+    await tester.pumpWidget(const RiffsterApp());
+    await tester.tap(find.widgetWithText(OutlinedButton, 'Chords'));
+    await tester.pump();
 
-      expect(find.text('Em'), findsOneWidget);
-      expect(find.text('1 / 13'), findsOneWidget);
-      expect(find.text('Warm-up'), findsNothing);
+    expect(find.text('Changes'), findsOneWidget);
+    expect(find.text('Next'), findsNothing);
+    expect(find.text('Warm-up'), findsNothing);
+    expect(find.byKey(const Key('chord-block-open-G')), findsOneWidget);
+    expect(find.byKey(const Key('chord-block-open-Em')), findsOneWidget);
+    expect(find.byKey(const Key('chord-block-barre-Bm barre')), findsOneWidget);
+    expect(find.byKey(const Key('chord-block-seventh-Em7')), findsOneWidget);
+    expect(find.text('Drop a chord here'), findsOneWidget);
 
-      await tester.tap(find.text('Next'));
-      await tester.pump();
-      expect(find.text('E'), findsOneWidget);
+    final from = tester.getCenter(find.byKey(const Key('chord-block-open-G')));
+    final onto = tester.getCenter(find.byKey(const Key('chord-lane')));
+    final gesture = await tester.startGesture(from);
+    await tester.pump();
+    await gesture.moveBy(const Offset(0, 30));
+    await tester.pump();
+    await gesture.moveTo(onto);
+    await tester.pump();
+    await gesture.up();
+    await tester.pump();
 
-      await tester.tap(find.text('Back'));
-      await tester.pump();
-      expect(find.text('Em'), findsOneWidget);
-
-      await tester.tap(find.text('Song'));
-      await tester.pump();
-      expect(find.text('Warm-up'), findsOneWidget);
-      expect(find.text('Chords'), findsOneWidget);
-    },
-  );
+    expect(find.text('G'), findsWidgets);
+    expect(find.text('Drop a chord here'), findsNothing);
+    expect(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is Text &&
+            widget.data == 'G' &&
+            widget.style?.fontSize == 28,
+      ),
+      findsOneWidget,
+    );
+  });
 
   testWidgets('maple turns the staff into a light neck', (tester) async {
     tester.view.physicalSize = const Size(1400, 900);

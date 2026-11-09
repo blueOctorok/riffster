@@ -85,11 +85,15 @@ Paid. The only online piece. Price and accounts come later, after `riffster.xyz`
 
 ### Builder mode
 
-Local. No Claude and no account.
+Local. No Claude and no account. The first slice is the Build button on the practice screen. The course stays the guided walk. A dropped grip becomes the same note list an imported song uses.
 
-- [ ] Drag chords from the book into an order. The name and the fingers come from that same grip.
-- [ ] Set the time signature, then drop single notes or a riff. A 12th-fret note is one dot. The player chooses how long it rings.
-- [ ] Name the song and practice it. A run of hits is a streak. The streak stays in the local score file.
+- [x] Chords shows every grip at once, as a chart card. Open, barre, and sevenths are colors in that grid, not pages. Low E is on the left. A higher shape starts at its lowest fret. There is no Next button.
+- [x] Drop a block on the lane or the staff to add it. Drop it on a chord to put it in front. Drag a name to move it. Drag the gold edge to change how long it rings. The next chord starts when this one ends.
+- [x] Loop plays the lane again. A finger that stays on the same string and fret is marked.
+- [ ] A small neck drops one note on any string. A 12th-fret note is one dot.
+- [ ] Vibrato, bend, slide, hammer, and pull are drawn on the note and not scored yet. The ear hears one pitch per pluck, so a bend would be marked wrong.
+- [ ] Name the lane and keep a hit streak in the local score file.
+- [ ] A time signature. The lane is 60 bpm for now, and the gap between chords is the duration.
 
 ## Later, only if we still want them
 

@@ -1,5 +1,25 @@
 # Changes
 
+## 2026-11-09 — Chord cards instead of fret numbers
+
+Chords opens every grip at once, as a grid of charts. There is no Next button and no shelf that hides the rest. Low E is the left string. O is an open string, X is muted, and the number in the dot is the finger, in the same colors as the staff. A shape that fits in four frets is drawn from the nut. A higher shape, such as the barre Bm, starts at its lowest fret so the dots stay large. The note letters sit under the strings. Open cards are warm paper, the barre card is blue, and the sevenths are green. Drag a card onto the lane under the grid. The wood picker hides on this screen.
+
+## 2026-11-09 — Build a chord lane on the practice screen
+
+Build sits next to the chord course. Open, Barre, and Sevenths are shelves of the same chord book. A block shows the name and the fret numbers from the low E. Dropping it on the lane or the staff adds that grip as ordinary notes. Dropping it on a chord already in the lane puts it in front. Dragging a name moves that chord. Dragging the gold edge changes how long it rings, and the next chord starts when this one ends. Loop plays the lane again. A finger that is already on the fret the next shape needs is marked "stays". A clickable neck, and marks for a bend or a vibrato, are not in this slice.
+
+## 2026-11-06 — A volume slider for the monitor
+
+The practice screen has a gold slider beside the level bar. Full is the four-times speaker copy. Dragging it down scales only what the speakers play. Pitch and the level bar stay on the raw cable. The choice lasts for this window. Speaker on and off is still the separate button.
+
+## 2026-11-06 — The monitor is four times louder
+
+Exclusive mode copies the cable straight to the speakers and skips the Windows recording level, so a strum that filled the green bar was only about a fifth of full scale on the way out. The speaker copy is now multiplied by four. Anything past full scale is flattened, so a hard hit does not wrap into fuzz. Pitch and the level bar still hear the raw cable.
+
+## 2026-11-06 — Exclusive mode for the guitar cable
+
+The cable is opened so Windows steps out of the way, and each short buffer is copied straight to the speakers on an audio thread. Dart hears a copy only for the pitch and the level bar, so scoring is not part of the delay. The speakers are taken over too when they accept it, which quiets other apps while the cable is the input. Speaker off writes silence and keeps the cable. If Windows refuses exclusive mode, the app falls back to the shared recorder. The status line says "exclusive" when the short path is the one open. The first build took the cable and scored the note, then never gave the speakers a second buffer, so the guitar was silent. Exclusive playback now submits the next whole buffer when the device asks, instead of waiting for the previous one to look empty. A 3 ms buffer then crackled, because the speaker asked before the cable had a full buffer. The buffer is 10 ms, and a buffer is submitted only when the speaker asks for one. That still stayed silent: the cable's signal and the speaker's request were ready together, and the wait always served the cable, so the speaker never got its turn. The speaker is now served first, and it is started with guitar already in the first buffer. The scoring guess on that path is 20 ms when the speakers were taken too, and 35 ms when playback stayed shared. The shared path stays at 50 ms. Both guesses still need a real strum.
+
 ## 2026-11-06 — Shorter delay from the string to the speaker
 
 The gap was a queue. Windows' recorder holds a chunk of the guitar before it hands the bytes over, and the speaker holds another chunk so a gap does not click. The published recorder does not offer a short capture buffer, so `third_party/record_windows` is that package with one change: Media Foundation is asked for low latency, which keeps about one device period instead of a long pile. The speaker mix is 256 frames (about 5 ms at 48 kHz), it waits 5 ms before the first sound, and a pile past about 40 ms is dropped. A hardware jack or the Gibson app can still be shorter, because those talk to the device more directly. The 50 ms scoring guess is unchanged until a real strum shows whether notes land early. After this change the delay was smaller and still audible. The cable was plugged into a USB dock on the laptop. A dock adds a hub hop of a couple of milliseconds, not the remaining gap. The rest is still the shared Windows path: one device period in, the trip through the app, and one period back out the speakers. A port on the laptop itself is the check. Going shorter than that means taking the cable over in exclusive mode, which is not built yet.

@@ -12,9 +12,11 @@ import '../import/open_guitar_pro.dart';
 import '../models/fretting_finger.dart';
 import '../models/tab_note.dart';
 import '../models/tab_song.dart';
-import '../music/chord_course.dart';
+import '../music/chord_lane.dart';
 import '../music/score_note.dart';
 import '../theme/neck_theme.dart';
+import '../widgets/chord_lane_bar.dart';
+import '../widgets/chord_palette.dart';
 import '../widgets/finger_colors.dart';
 import '../widgets/sideways_tab.dart';
 
@@ -33,8 +35,12 @@ class _PracticeScreenState extends State<PracticeScreen>
   TabSong _song = demoSong;
   Duration _position = Duration.zero;
 
-  /// Null while a song is on screen. A number is the chord-course step.
-  int? _courseIndex;
+  /// The chord grid. The lane is an ordinary song, so the staff and the
+  /// scorer do not learn a second kind of note.
+  var _chords = false;
+  var _loop = false;
+  final _lane = <LaneChord>[];
+  TabSong _built = songFromLane(const []);
 
   /// The song's place, kept while the course is open so Song can return there.
   Duration _songPosition = Duration.zero;
@@ -60,9 +66,15 @@ class _PracticeScreenState extends State<PracticeScreen>
   String? _irigSpeaker;
   List<String> _inputs = const [];
   var _inputIsGuitar = false;
+  var _exclusive = false;
+  var _latencyMs = inputLatencyMs;
   var _looking = false;
   var _speakerReady = false;
   var _speakerOn = false;
+
+  /// Full is the monitor level that sounded right. Lower turns only the
+  /// speaker copy down. The pitch copy stays at the raw cable level.
+  var _volume = 1.0;
   var _level = 0.0;
   ScoreMark? _mark;
   var _earFailed = false;
@@ -96,14 +108,33 @@ class _PracticeScreenState extends State<PracticeScreen>
     super.dispose();
   }
 
-  /// The song, or the current chord-course step.
-  TabSong get _active =>
-      _courseIndex == null ? _song : chordCourse[_courseIndex!];
+  /// The song, the course step, or the lane being built.
+  TabSong get _active {
+    if (_chords) return _built;
+    return _song;
+  }
 
   void _onTick(Duration elapsed) {
     final position = _resumeFrom + elapsed;
     final end = Duration(milliseconds: _active.lengthMs + 800);
     final at = position.inMilliseconds;
+    // Restart the ticker. Its elapsed time does not rewind on its own,
+    // and the lead-in stays so the first chord comes in with a warning.
+    if (_loop &&
+        _chords &&
+        _active.lengthMs > 0 &&
+        position >= Duration(milliseconds: _active.lengthMs)) {
+      _marks.clear();
+      _resumeFrom = Duration.zero;
+      _ticker.stop();
+      _ticker.start();
+      setState(() {
+        _position = Duration.zero;
+        _playing = true;
+        _mark = null;
+      });
+      return;
+    }
     if (position >= end) {
       _ticker.stop();
       expireUnplayed(_marks, _active.notes, at);
@@ -164,7 +195,7 @@ class _PracticeScreenState extends State<PracticeScreen>
       _ticker.stop();
       setState(() {
         _song = song;
-        _courseIndex = null;
+        _chords = false;
         _position = Duration.zero;
         _songPosition = Duration.zero;
         _resumeFrom = Duration.zero;
@@ -186,11 +217,11 @@ class _PracticeScreenState extends State<PracticeScreen>
     }
   }
 
-  void _enterCourse() {
+  void _enterChords() {
     _ticker.stop();
     setState(() {
-      _songPosition = _position;
-      _courseIndex = 0;
+      if (!_chords) _songPosition = _position;
+      _chords = true;
       _position = Duration.zero;
       _resumeFrom = Duration.zero;
       _playing = false;
@@ -199,12 +230,50 @@ class _PracticeScreenState extends State<PracticeScreen>
     });
   }
 
-  void _leaveCourse() {
+  void _leaveChords() {
     _ticker.stop();
     setState(() {
-      _courseIndex = null;
+      _chords = false;
       _position = _songPosition;
       _resumeFrom = _songPosition;
+      _playing = false;
+      _marks.clear();
+      _mark = null;
+    });
+  }
+
+  void _acceptLane(LaneDrag drag, int index) {
+    setState(() {
+      final block = drag.block;
+      if (block != null) {
+        _lane.insert(index, LaneChord(block));
+      } else {
+        final from = drag.from;
+        if (from == null || from == index || from + 1 == index) return;
+        final placed = _lane.removeAt(from);
+        final at = index > from ? index - 1 : index;
+        _lane.insert(at, placed);
+      }
+      _built = songFromLane(_lane);
+      _marks.clear();
+    });
+  }
+
+  void _setLaneDuration(int index, int durationMs) {
+    setState(() {
+      _lane[index].durationMs = durationMs;
+      _built = songFromLane(_lane);
+      _marks.clear();
+    });
+  }
+
+  void _removeLane(int index) {
+    _ticker.stop();
+    setState(() {
+      _lane.removeAt(index);
+      _built = songFromLane(_lane);
+      _position = Duration.zero;
+      _resumeFrom = Duration.zero;
       _playing = false;
       _marks.clear();
       _mark = null;
@@ -218,6 +287,8 @@ class _PracticeScreenState extends State<PracticeScreen>
       _inputs = status.inputs;
       _irigSpeaker = status.irigSpeaker;
       _inputIsGuitar = status.isGuitar;
+      _exclusive = status.exclusive;
+      _latencyMs = status.latencyMs;
       _speakerReady = status.speakerReady;
       _speakerOn = status.isGuitar && status.speakerReady;
     });
@@ -248,7 +319,7 @@ class _PracticeScreenState extends State<PracticeScreen>
   void _onGuitar(int midi) {
     if (!mounted) return;
     // The buffer is late. Judge the moment the string was plucked.
-    final playedAt = _position.inMilliseconds - inputLatencyMs;
+    final playedAt = _position.inMilliseconds - _latencyMs;
     ScoreMark? mark;
     if (_playing) {
       final written = notesNear(_active.notes, playedAt);
@@ -265,28 +336,54 @@ class _PracticeScreenState extends State<PracticeScreen>
     });
   }
 
-  void _step(int delta) {
-    final next = (_courseIndex! + delta).clamp(0, chordCourse.length - 1);
-    _ticker.stop();
-    setState(() {
-      _courseIndex = next;
-      _position = Duration.zero;
-      _resumeFrom = Duration.zero;
-      _playing = false;
-      _marks.clear();
-      _mark = null;
-    });
-  }
-
   @override
   Widget build(BuildContext context) {
     final active = _active;
     final clock = _clockLabel(_position);
     final songClock = _clockLabel(Duration(milliseconds: active.lengthMs));
-    final onCourse = _courseIndex != null;
+    final onChords = _chords;
+    // The staff has a fixed height. Stretching it made the strings
+    // far apart, which is the opposite of a tab you can read.
+    final staff = SizedBox(
+      height: SidewaysTab.height,
+      child: DragTarget<LaneDrag>(
+        onAcceptWithDetails: (details) {
+          if (!_chords) return;
+          _acceptLane(details.data, _lane.length);
+        },
+        builder: (context, candidate, _) {
+          return DecoratedBox(
+            key: const Key('staff'),
+            decoration: BoxDecoration(
+              color: _neck.wood,
+              borderRadius: const BorderRadius.all(Radius.circular(12)),
+              border: _chords && candidate.isNotEmpty
+                  ? Border.all(color: const Color(0xFFE4B15A), width: 2)
+                  : null,
+            ),
+            child: SidewaysTab(
+              song: active,
+              position: _position,
+              neck: _neck,
+              marks: Map<TabNote, ScoreMark>.of(_marks),
+            ),
+          );
+        },
+      ),
+    );
+    final positionSlider = Slider(
+      key: const Key('position'),
+      value: _position.inMilliseconds.clamp(0, active.lengthMs).toDouble(),
+      max: active.lengthMs <= 0 ? 1 : active.lengthMs.toDouble(),
+      activeColor: const Color(0xFFE4B15A),
+      inactiveColor: const Color(0xFF3A342C),
+      onChangeStart: (_) => _scrubStarted(),
+      onChanged: _opening ? null : _scrubTo,
+      onChangeEnd: _scrubEnded,
+    );
 
     return Scaffold(
-      body: Padding(
+      body: SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(28, 24, 28, 20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -313,54 +410,61 @@ class _PracticeScreenState extends State<PracticeScreen>
                   '${active.tempoBpm} bpm',
                   style: const TextStyle(color: Color(0xFF8A8175)),
                 ),
-                if (onCourse) ...[
-                  const SizedBox(width: 16),
-                  Text(
-                    '${_courseIndex! + 1} / ${chordCourse.length}',
-                    style: const TextStyle(color: Color(0xFF8A8175)),
-                  ),
-                ],
                 const Spacer(),
                 Text(
                   '$clock / $songClock',
                   style: const TextStyle(color: Color(0xFF8A8175)),
                 ),
-                const SizedBox(width: 16),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Row(
+              children: [
                 OutlinedButton(
                   onPressed: _opening ? null : _open,
                   child: Text(_opening ? 'Opening…' : 'Open'),
                 ),
                 const SizedBox(width: 8),
-                OutlinedButton(
-                  onPressed: _opening
-                      ? null
-                      : (onCourse ? _leaveCourse : _enterCourse),
-                  child: Text(onCourse ? 'Song' : 'Chords'),
-                ),
-                if (onCourse) ...[
+                onChords
+                    ? FilledButton(
+                        onPressed: _enterChords,
+                        child: const Text('Chords'),
+                      )
+                    : OutlinedButton(
+                        onPressed: _opening ? null : _enterChords,
+                        child: const Text('Chords'),
+                      ),
+                if (onChords) ...[
                   const SizedBox(width: 8),
                   OutlinedButton(
-                    onPressed: _courseIndex == 0 ? null : () => _step(-1),
-                    child: const Text('Back'),
+                    onPressed: _leaveChords,
+                    child: const Text('Song'),
                   ),
                   const SizedBox(width: 8),
-                  OutlinedButton(
-                    onPressed: _courseIndex == chordCourse.length - 1
-                        ? null
-                        : () => _step(1),
-                    child: const Text('Next'),
-                  ),
+                  _loop
+                      ? FilledButton(
+                          onPressed: () => setState(() => _loop = false),
+                          child: const Text('Looping'),
+                        )
+                      : OutlinedButton(
+                          onPressed: () => setState(() => _loop = true),
+                          child: const Text('Loop'),
+                        ),
                 ],
                 const SizedBox(width: 8),
                 FilledButton(
-                  onPressed: _opening ? null : _toggle,
+                  onPressed: _opening || (onChords && _lane.isEmpty)
+                      ? null
+                      : _toggle,
                   child: Text(_playing ? 'Pause' : 'Play'),
                 ),
               ],
             ),
-            const SizedBox(height: 14),
-            const _FingerLegend(),
-            const SizedBox(height: 8),
+            if (!onChords) ...[
+              const SizedBox(height: 14),
+              const _FingerLegend(),
+              const SizedBox(height: 8),
+            ],
             Row(
               children: [
                 Expanded(
@@ -377,6 +481,33 @@ class _PracticeScreenState extends State<PracticeScreen>
                   child: Text(_looking ? 'Looking…' : 'Look again'),
                 ),
                 _LevelMeter(level: _level),
+                const SizedBox(width: 8),
+                SizedBox(
+                  width: 120,
+                  child: SliderTheme(
+                    data: SliderTheme.of(context).copyWith(
+                      trackHeight: 3,
+                      thumbShape: const RoundSliderThumbShape(
+                        enabledThumbRadius: 6,
+                      ),
+                      overlayShape: const RoundSliderOverlayShape(
+                        overlayRadius: 12,
+                      ),
+                    ),
+                    child: Slider(
+                      key: const Key('volume'),
+                      value: _volume,
+                      activeColor: const Color(0xFFE4B15A),
+                      inactiveColor: const Color(0xFF3A342C),
+                      onChanged: _speakerReady && _inputIsGuitar
+                          ? (value) {
+                              setState(() => _volume = value);
+                              _ear.volume = value;
+                            }
+                          : null,
+                    ),
+                  ),
+                ),
                 TextButton(
                   onPressed: _speakerReady && _inputIsGuitar
                       ? () {
@@ -391,41 +522,35 @@ class _PracticeScreenState extends State<PracticeScreen>
               ],
             ),
             const SizedBox(height: 12),
-            _NeckPicker(
-              selected: _neck,
-              onSelected: (neck) => setState(() => _neck = neck),
-            ),
-            const SizedBox(height: 16),
-            // The staff has a fixed height. Stretching it made the strings
-            // far apart, which is the opposite of a tab you can read.
-            SizedBox(
-              height: SidewaysTab.height,
-              child: DecoratedBox(
-                key: const Key('staff'),
-                decoration: BoxDecoration(
-                  color: _neck.wood,
-                  borderRadius: const BorderRadius.all(Radius.circular(12)),
-                ),
-                child: SidewaysTab(
-                  song: active,
-                  position: _position,
-                  neck: _neck,
-                  marks: Map<TabNote, ScoreMark>.of(_marks),
-                ),
+            if (onChords) ...[
+              const SizedBox(height: 8),
+              const Text(
+                'X muted · O open · 1 index, 2 middle, 3 ring, 4 pinky',
+                style: TextStyle(color: Color(0xFF8A8175), fontSize: 12),
               ),
-            ),
-            const SizedBox(height: 8),
-            Slider(
-              value: _position.inMilliseconds
-                  .clamp(0, active.lengthMs)
-                  .toDouble(),
-              max: active.lengthMs <= 0 ? 1 : active.lengthMs.toDouble(),
-              activeColor: const Color(0xFFE4B15A),
-              inactiveColor: const Color(0xFF3A342C),
-              onChangeStart: (_) => _scrubStarted(),
-              onChanged: _opening ? null : _scrubTo,
-              onChangeEnd: _scrubEnded,
-            ),
+              const SizedBox(height: 8),
+              const ChordPalette(),
+              const SizedBox(height: 10),
+              ChordLaneBar(
+                lane: _lane,
+                onDrop: _acceptLane,
+                onDuration: _setLaneDuration,
+                onRemove: _removeLane,
+              ),
+              const SizedBox(height: 8),
+              staff,
+              const SizedBox(height: 8),
+              positionSlider,
+            ] else ...[
+              _NeckPicker(
+                selected: _neck,
+                onSelected: (neck) => setState(() => _neck = neck),
+              ),
+              const SizedBox(height: 8),
+              staff,
+              const SizedBox(height: 8),
+              positionSlider,
+            ],
           ],
         ),
       ),
@@ -439,7 +564,7 @@ class _PracticeScreenState extends State<PracticeScreen>
     final where = _inputName == null
         ? 'Listening'
         : (_inputIsGuitar
-              ? _inputName!
+              ? (_exclusive ? '$_inputName · exclusive' : _inputName!)
               : _irigSpeaker != null
               ? '$_irigSpeaker is connected. Windows did not start the guitar input. Plug in the Rocksmith cable, then press Look again.'
               : 'Plug in the Rocksmith cable. It can be plugged in after the app is open. Hearing $_inputName until then. Inputs: ${_inputs.isEmpty ? 'none' : _inputs.join(', ')}');

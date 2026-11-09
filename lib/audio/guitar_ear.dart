@@ -1,10 +1,12 @@
 import 'dart:async';
+import 'dart:io';
 import 'dart:math' as math;
 import 'dart:typed_data';
 
 import 'package:flutter_soloud/flutter_soloud.dart';
 import 'package:record/record.dart';
 
+import 'exclusive_guitar.dart';
 import 'pitch.dart';
 
 /// How long after the pluck the buffer reaches Dart.
@@ -28,6 +30,8 @@ class HeardInput {
     required this.speakerReady,
     required this.inputs,
     this.irigSpeaker,
+    this.exclusive = false,
+    this.latencyMs = inputLatencyMs,
   });
 
   final String name;
@@ -41,6 +45,12 @@ class HeardInput {
 
   /// Set when the iRig speaker is on but Windows did not start a guitar input.
   final String? irigSpeaker;
+
+  /// True when the cable is open in exclusive mode.
+  final bool exclusive;
+
+  /// How far behind the string this path is, in milliseconds. A guess.
+  final int latencyMs;
 }
 
 /// Listens to a guitar cable and plays that signal out the speakers.
@@ -69,21 +79,49 @@ class GuitarEar {
   var _closed = false;
   var _opening = false;
   var _speakerOn = false;
+
+  /// 0 is silent. 1 is as loud as this path is meant to be. On the exclusive
+  /// path that is the four-times boost. The shared path is already boosted
+  /// by Windows, so 1 there is left alone.
+  var _volume = 1.0;
   var _guitarInputOpen = false;
   var _monitorReady = false;
+  var _exclusive = false;
+  var _latencyMs = inputLatencyMs;
+  StreamSubscription<Uint8List>? _exclusivePcm;
   AudioSource? _monitor;
   SoundHandle? _monitorHandle;
 
   /// The speaker follows the guitar while this is true.
   bool get speakerOn => _speakerOn;
 
+  /// How loud the guitar is in the speakers. 1 is the level that sounded right.
+  double get volume => _volume;
+
+  set volume(double value) {
+    _volume = value.clamp(0.0, 1.0).toDouble();
+    if (_exclusive) {
+      unawaited(ExclusiveGuitar.setVolume(_volume));
+      return;
+    }
+    _applySharedVolume();
+  }
+
+  /// How far behind the string the open path is. Scoring subtracts this.
+  int get latencyMs => _latencyMs;
+
   set speakerOn(bool value) {
     // A room mic must not be able to turn the loop on.
     if (value && !_guitarInputOpen) {
       _speakerOn = false;
+      if (_exclusive) unawaited(ExclusiveGuitar.setSpeaker(false));
       return;
     }
     _speakerOn = value;
+    if (_exclusive) {
+      unawaited(ExclusiveGuitar.setSpeaker(value));
+      return;
+    }
     final handle = _monitorHandle;
     final monitor = _monitor;
     if (!_monitorReady ||
@@ -97,7 +135,13 @@ class GuitarEar {
         SoLoud.instance.resetBufferStream(monitor);
       } catch (_) {}
     }
-    SoLoud.instance.setVolume(handle, value ? 1 : 0);
+    _applySharedVolume();
+  }
+
+  void _applySharedVolume() {
+    final handle = _monitorHandle;
+    if (handle == null || !SoLoud.instance.isInitialized) return;
+    SoLoud.instance.setVolume(handle, _speakerOn ? _volume : 0);
   }
 
   /// Asks Windows again, and switches over if the guitar cable is there now.
@@ -151,6 +195,12 @@ class GuitarEar {
     final inputName = device?.label ?? 'the PC mic';
     _guitarInputOpen = device != null;
     _speakerOn = _guitarInputOpen;
+    _latencyMs = inputLatencyMs;
+    // Exclusive mode copies the cable buffer to the speakers on an audio
+    // thread. The bytes never visit Dart on the way to the speaker, which
+    // is the delay that was left. Pitch still uses the copy that arrives here.
+    if (_guitarInputOpen && await _openExclusive()) return;
+    if (_closed) return;
     if (_guitarInputOpen) {
       await _openSpeaker(throughIrig: _playsThroughIrig(device!.label));
     }
@@ -182,17 +232,55 @@ class GuitarEar {
             ? const []
             : [for (final item in devices) item.label],
         irigSpeaker: device == null ? _irigSpeakerName() : null,
+        latencyMs: _latencyMs,
       ),
     );
   }
 
+  /// Subscribes first so the first buffers are not thrown away, then asks
+  /// Windows for the cable. A null result means exclusive was refused and
+  /// the shared recorder should open instead.
+  Future<bool> _openExclusive() async {
+    if (Platform.environment.containsKey('FLUTTER_TEST')) return false;
+    _exclusivePcm = ExclusiveGuitar.pcm.listen(_onBytes, onError: (_) {});
+    final opened = await ExclusiveGuitar.start();
+    if (_closed || opened == null || opened.sampleRate <= 0) {
+      await _exclusivePcm?.cancel();
+      _exclusivePcm = null;
+      await ExclusiveGuitar.stop();
+      return false;
+    }
+    _exclusive = true;
+    _sampleRate = opened.sampleRate;
+    _latencyMs = opened.renderExclusive ? 20 : 35;
+    _monitorReady = true;
+    _started = true;
+    unawaited(ExclusiveGuitar.setVolume(_volume));
+    onReady?.call(
+      HeardInput(
+        name: opened.name,
+        isGuitar: true,
+        speakerReady: true,
+        inputs: const [],
+        exclusive: true,
+        latencyMs: _latencyMs,
+      ),
+    );
+    return true;
+  }
+
   Future<void> stop() async {
+    await _exclusivePcm?.cancel();
+    _exclusivePcm = null;
+    if (_exclusive) {
+      _exclusive = false;
+      await ExclusiveGuitar.stop();
+    }
+    final recording = _subscription != null;
     await _subscription?.cancel();
     _subscription = null;
-    if (_started) {
-      await _recorder.cancel();
-      _started = false;
-    }
+    if (recording) await _recorder.cancel();
+    _started = false;
     _window.clear();
     _holding = false;
   }
@@ -248,7 +336,7 @@ class GuitarEar {
       _monitor = monitor;
       _monitorHandle = SoLoud.instance.play(
         monitor,
-        volume: _speakerOn ? 1 : 0,
+        volume: _speakerOn ? _volume : 0,
       );
       _monitorReady = true;
     } catch (_) {

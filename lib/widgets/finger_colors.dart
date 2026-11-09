@@ -26,3 +26,13 @@ const fingerLabel = <FrettingFinger, String>{
   FrettingFinger.ring: 'Ring',
   FrettingFinger.pinky: 'Pinky',
 };
+
+/// Chord charts number the hand. 1 is the index, 4 is the pinky.
+int fingerNumber(FrettingFinger finger) {
+  return switch (finger) {
+    FrettingFinger.indexFinger => 1,
+    FrettingFinger.middle => 2,
+    FrettingFinger.ring => 3,
+    FrettingFinger.pinky => 4,
+  };
+}
