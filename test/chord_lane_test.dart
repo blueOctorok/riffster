@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:riffster/music/chord_catalog.dart';
 import 'package:riffster/music/chord_course.dart';
 import 'package:riffster/music/chord_lane.dart';
 
@@ -23,10 +24,7 @@ void main() {
 
     expect(built.title, 'G · C');
     expect(built.notes.first.timeMs, 500);
-    expect(
-      built.notes.firstWhere((note) => note.midi == 48).timeMs,
-      2000,
-    );
+    expect(built.notes.firstWhere((note) => note.midi == 48).timeMs, 2000);
   });
 
   test('a finger on the same fret can stay for the next shape', () {
@@ -39,18 +37,32 @@ void main() {
     expect(fingerStays(g.grip, c.grip), isFalse);
   });
 
-  test('barre and sevenths are shelves of the same book', () {
+  test('barre and sevenths stay in the book, under their own groups', () {
     expect(
-      chordBlocks
-          .where((block) => block.shelf == ChordShelf.barre)
-          .map((block) => block.label),
-      ['Bm barre'],
+      chordBlocks.where(
+        (block) =>
+            block.group == ChordGroup.barre && block.label == 'Bm E-shape',
+      ),
+      hasLength(1),
     );
     expect(
-      chordBlocks
-          .where((block) => block.shelf == ChordShelf.seventh)
-          .map((block) => block.label),
-      ['Em7', 'F#7'],
+      blocksIn(ChordGroup.seventh, 'm7').map((block) => block.label),
+      contains('Em7'),
     );
+    expect(
+      blocksIn(ChordGroup.seventh, '7').map((block) => block.label),
+      contains('F#7'),
+    );
+    expect(blocksIn(ChordGroup.open, '').map((block) => block.label), [
+      'G',
+      'C',
+      'D',
+      'E',
+      'Em',
+      'A',
+      'Am',
+      'Dm',
+      'Bm',
+    ]);
   });
 }

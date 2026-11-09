@@ -42,6 +42,8 @@ class ChordShapeCard extends StatelessWidget {
           children: [
             Text(
               name,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
               style: const TextStyle(
                 color: _ink,
                 fontSize: 16,
@@ -51,7 +53,7 @@ class ChordShapeCard extends StatelessWidget {
             const SizedBox(height: 2),
             CustomPaint(
               size: const Size(128, 132),
-              painter: _ChartPainter(chartFor(grip)),
+              painter: _ChartPainter(chartFor(grip, flats: name.contains('b'))),
             ),
           ],
         ),

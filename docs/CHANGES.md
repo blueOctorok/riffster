@@ -1,5 +1,9 @@
 # Changes
 
+## 2026-11-09 — The chord book is grouped
+
+Chords still opens a grid of cards you drag onto the lane. The book is no longer one pile. Open, Barre, Sevenths, Sus, Power, and More are chips, and the grid shows that group. Barre has a second row for the shape (E or A) and a third for the quality (major, minor, 7, m7, maj7), twelve roots at a time. Sevenths split into 7, m7, and maj7. Power splits into the low E string and the A string. A barre that shares a name with an open chord keeps the shape in the label, so the lane can show Bm and Bm E-shape. Every card was checked against the chord's notes before it shipped. There is still no Next button.
+
 ## 2026-11-09 — Chord cards instead of fret numbers
 
 Chords opens every grip at once, as a grid of charts. There is no Next button and no shelf that hides the rest. Low E is the left string. O is an open string, X is muted, and the number in the dot is the finger, in the same colors as the staff. A shape that fits in four frets is drawn from the nut. A higher shape, such as the barre Bm, starts at its lowest fret so the dots stay large. The note letters sit under the strings. Open cards are warm paper, the barre card is blue, and the sevenths are green. Drag a card onto the lane under the grid. The wood picker hides on this screen.

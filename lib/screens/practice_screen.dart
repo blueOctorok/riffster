@@ -12,11 +12,13 @@ import '../import/open_guitar_pro.dart';
 import '../models/fretting_finger.dart';
 import '../models/tab_note.dart';
 import '../models/tab_song.dart';
+import '../music/chord_catalog.dart';
 import '../music/chord_lane.dart';
 import '../music/score_note.dart';
 import '../theme/neck_theme.dart';
 import '../widgets/chord_lane_bar.dart';
 import '../widgets/chord_palette.dart';
+import '../widgets/chord_picker.dart';
 import '../widgets/finger_colors.dart';
 import '../widgets/sideways_tab.dart';
 
@@ -39,6 +41,11 @@ class _PracticeScreenState extends State<PracticeScreen>
   /// scorer do not learn a second kind of note.
   var _chords = false;
   var _loop = false;
+
+  /// Which page of the chord book is open. Remembered while the window
+  /// is open, so leaving and coming back does not dump you on Open.
+  var _group = ChordGroup.open;
+  var _section = '';
   final _lane = <LaneChord>[];
   TabSong _built = songFromLane(const []);
 
@@ -524,12 +531,24 @@ class _PracticeScreenState extends State<PracticeScreen>
             const SizedBox(height: 12),
             if (onChords) ...[
               const SizedBox(height: 8),
+              ChordPicker(
+                group: _group,
+                section: _section,
+                onGroup: (group) => setState(() {
+                  _group = group;
+                  _section = '';
+                }),
+                onSection: (section) => setState(() => _section = section),
+              ),
+              const SizedBox(height: 8),
               const Text(
                 'X muted · O open · 1 index, 2 middle, 3 ring, 4 pinky',
                 style: TextStyle(color: Color(0xFF8A8175), fontSize: 12),
               ),
               const SizedBox(height: 8),
-              const ChordPalette(),
+              ChordPalette(
+                blocks: blocksIn(_group, activeSection(_group, _section)),
+              ),
               const SizedBox(height: 10),
               ChordLaneBar(
                 lane: _lane,

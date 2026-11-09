@@ -3,10 +3,12 @@ import 'package:flutter/material.dart';
 import '../music/chord_lane.dart';
 import 'chord_diagram.dart';
 
-/// Every grip in the book, in one grid. Nothing is behind a Next button
-/// or a shelf you have to switch. Low E is the left string of each card.
+/// The cards for one group. Every card in that group is on screen
+/// together, and each one can be dragged. There is no Next button.
 class ChordPalette extends StatelessWidget {
-  const ChordPalette({super.key});
+  const ChordPalette({super.key, required this.blocks});
+
+  final List<ChordBlock> blocks;
 
   @override
   Widget build(BuildContext context) {
@@ -19,7 +21,7 @@ class ChordPalette extends StatelessWidget {
           spacing: gap,
           runSpacing: gap,
           children: [
-            for (final block in chordBlocks)
+            for (final block in blocks)
               SizedBox(width: width, child: _ChordBlock(block)),
           ],
         );
@@ -38,26 +40,28 @@ class _ChordBlock extends StatelessWidget {
     final face = ChordShapeCard(
       name: block.label,
       grip: block.grip,
-      paper: _paperFor(block.shelf),
+      paper: _paperFor(block.group),
     );
     return Draggable<LaneDrag>(
       data: LaneDrag.block(block),
       feedback: Material(color: Colors.transparent, child: face),
       childWhenDragging: Opacity(opacity: 0.35, child: face),
       child: KeyedSubtree(
-        key: Key('chord-block-${block.shelf.name}-${block.label}'),
+        key: Key('chord-block-${block.group.name}-${block.label}'),
         child: face,
       ),
     );
   }
 }
 
-/// A light wash per family, so barre and sevenths read as groups
-/// without hiding the open chords.
-Color _paperFor(ChordShelf shelf) {
-  return switch (shelf) {
-    ChordShelf.open => const Color(0xFFF4EFE6),
-    ChordShelf.barre => const Color(0xFFE4EEF6),
-    ChordShelf.seventh => const Color(0xFFE5F2E6),
+/// A light wash per family, so a barre card does not look like an open one.
+Color _paperFor(ChordGroup group) {
+  return switch (group) {
+    ChordGroup.open => const Color(0xFFF4EFE6),
+    ChordGroup.barre => const Color(0xFFE4EEF6),
+    ChordGroup.seventh => const Color(0xFFE5F2E6),
+    ChordGroup.sus => const Color(0xFFF8F1D8),
+    ChordGroup.power => const Color(0xFFE8E6F2),
+    ChordGroup.more => const Color(0xFFF8E8EA),
   };
 }

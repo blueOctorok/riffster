@@ -114,6 +114,11 @@ const chordBook = <ChordGrip>[
   barreBm, // 7 9 9 7 7 7
 ];
 
+/// The grips a song is matched against. Starts as [chordBook]. The chord
+/// catalog adds the rest when it loads, so an imported barre chord can
+/// get a name without this file listing every root by hand.
+Iterable<ChordGrip> gripsToMatch = chordBook;
+
 /// The grip these notes are holding, or null when none fits.
 ///
 /// Every fretted note the grip needs has to be here, at that fret. A note
@@ -131,7 +136,7 @@ ChordGrip? matchingGrip(Iterable<TabNote> notes) {
 
   ChordGrip? best;
   var bestFretted = -1;
-  for (final grip in chordBook) {
+  for (final grip in gripsToMatch) {
     if (!_matches(grip, played)) continue;
     final fretted = _frettedCount(grip);
     // Two grips can share notes. The one that asks for more fingers is

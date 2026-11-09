@@ -19,6 +19,21 @@ const _pitchLetters = [
   'B',
 ];
 
+const _flatLetters = [
+  'C',
+  'Db',
+  'D',
+  'Eb',
+  'E',
+  'F',
+  'Gb',
+  'G',
+  'Ab',
+  'A',
+  'Bb',
+  'B',
+];
+
 /// One string on a chord chart, low E first.
 class ChartString {
   const ChartString({required this.fret, this.finger, this.pitch});
@@ -83,7 +98,9 @@ class ChordChart {
   }
 }
 
-ChordChart chartFor(ChordGrip grip) {
+/// [flats] spells the letters under the strings as Bb and Eb. A chord
+/// named Bb should not show A# on the root string.
+ChordChart chartFor(ChordGrip grip, {bool flats = false}) {
   var lowest = 99;
   var highest = 0;
   var open = false;
@@ -107,7 +124,8 @@ ChordChart chartFor(ChordGrip grip) {
       : _atLeast(chartFretCount, highest - lowest + 1);
 
   final strings = <ChartString>[
-    for (var string = 6; string >= 1; string--) _column(grip, string),
+    for (var string = 6; string >= 1; string--)
+      _column(grip, string, flats: flats),
   ];
 
   return ChordChart(
@@ -118,12 +136,13 @@ ChordChart chartFor(ChordGrip grip) {
   );
 }
 
-ChartString _column(ChordGrip grip, int string) {
+ChartString _column(ChordGrip grip, int string, {required bool flats}) {
   final fret = grip.frets[string - 1];
   final finger = fret == null || fret == 0 ? null : grip.fingerOn(string);
+  final letters = flats ? _flatLetters : _pitchLetters;
   final pitch = fret == null
       ? null
-      : _pitchLetters[(openStringMidi[string - 1] + fret) % 12];
+      : letters[(openStringMidi[string - 1] + fret) % 12];
   return ChartString(fret: fret, finger: finger, pitch: pitch);
 }
 

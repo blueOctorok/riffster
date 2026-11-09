@@ -87,7 +87,7 @@ Paid. The only online piece. Price and accounts come later, after `riffster.xyz`
 
 Local. No Claude and no account. The first slice is the Build button on the practice screen. The course stays the guided walk. A dropped grip becomes the same note list an imported song uses.
 
-- [x] Chords shows every grip at once, as a chart card. Open, barre, and sevenths are colors in that grid, not pages. Low E is on the left. A higher shape starts at its lowest fret. There is no Next button.
+- [x] Chords shows one group at a time, as chart cards you drag. Open, barre, sevenths, sus, power, and more. Barre picks an E or A shape and a quality, then shows the twelve roots. There is no Next button. Low E is on the left. A higher shape starts at its lowest fret.
 - [x] Drop a block on the lane or the staff to add it. Drop it on a chord to put it in front. Drag a name to move it. Drag the gold edge to change how long it rings. The next chord starts when this one ends.
 - [x] Loop plays the lane again. A finger that stays on the same string and fret is marked.
 - [ ] A small neck drops one note on any string. A 12th-fret note is one dot.

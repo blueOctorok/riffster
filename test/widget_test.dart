@@ -57,10 +57,11 @@ void main() {
     expect(find.text('Warm-up'), findsNothing);
     expect(find.byKey(const Key('chord-block-open-G')), findsOneWidget);
     expect(find.byKey(const Key('chord-block-open-Em')), findsOneWidget);
-    expect(find.byKey(const Key('chord-block-barre-Bm barre')), findsOneWidget);
-    expect(find.byKey(const Key('chord-block-seventh-Em7')), findsOneWidget);
+    expect(find.byKey(const Key('chord-block-barre-Bm E-shape')), findsNothing);
+    expect(find.byKey(const Key('chord-block-seventh-Em7')), findsNothing);
     expect(find.text('Drop a chord here'), findsOneWidget);
 
+    await tester.ensureVisible(find.byKey(const Key('chord-lane')));
     final from = tester.getCenter(find.byKey(const Key('chord-block-open-G')));
     final onto = tester.getCenter(find.byKey(const Key('chord-lane')));
     final gesture = await tester.startGesture(from);
@@ -83,6 +84,20 @@ void main() {
       ),
       findsOneWidget,
     );
+
+    await tester.ensureVisible(find.byKey(const Key('group-barre')));
+    await tester.tap(find.byKey(const Key('group-barre')));
+    await tester.pump();
+    expect(find.byKey(const Key('chord-block-barre-F')), findsOneWidget);
+    expect(find.text('Next'), findsNothing);
+
+    await tester.tap(find.byKey(const Key('barre-quality-Minor')));
+    await tester.pump();
+    expect(
+      find.byKey(const Key('chord-block-barre-Bm E-shape')),
+      findsOneWidget,
+    );
+    expect(find.byKey(const Key('chord-block-open-G')), findsNothing);
   });
 
   testWidgets('maple turns the staff into a light neck', (tester) async {

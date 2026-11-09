@@ -2,42 +2,53 @@ import '../models/tab_note.dart';
 import '../models/tab_song.dart';
 import 'chord_book.dart';
 
-/// A shelf in the chord palette. A grip lives on one shelf.
-enum ChordShelf { open, barre, seventh }
+/// A family in the chord book. The screen shows one family at a time.
+enum ChordGroup { open, barre, seventh, sus, power, more }
 
-extension ChordShelfLabel on ChordShelf {
+extension ChordGroupLabel on ChordGroup {
   String get label => switch (this) {
-    ChordShelf.open => 'Open',
-    ChordShelf.barre => 'Barre',
-    ChordShelf.seventh => 'Sevenths',
+    ChordGroup.open => 'Open',
+    ChordGroup.barre => 'Barre',
+    ChordGroup.seventh => 'Sevenths',
+    ChordGroup.sus => 'Sus',
+    ChordGroup.power => 'Power',
+    ChordGroup.more => 'More',
+  };
+
+  /// One line under the chips, so the group says what you are looking at.
+  String get blurb => switch (this) {
+    ChordGroup.open => 'First position. No full barre.',
+    ChordGroup.barre =>
+      'One shape, moved up the neck. F is the first E-shape major.',
+    ChordGroup.seventh => 'The chord plus its 7th. Dominant, minor, or major.',
+    ChordGroup.sus =>
+      'The 3rd steps aside. sus2 is a whole step up, sus4 is the 4th.',
+    ChordGroup.power => 'Root and fifth. Move it to any fret.',
+    ChordGroup.more => 'Diminished, augmented, and add9.',
   };
 }
 
-/// One block in the palette. [label] is what the lane and the title show.
-/// The barre Bm is named apart from the open Bm, or the title would read
-/// "Bm · Bm" and you could not tell which shape you dropped.
+/// One card in the book. [label] is what the lane and the title show.
+///
+/// A barre that shares a name with an open chord gets the shape in the
+/// label, so a dropped lane can say "Bm · Bm E-shape" and you can tell
+/// the two grips apart.
 class ChordBlock {
-  const ChordBlock(this.shelf, this.grip, this.label);
+  const ChordBlock({
+    required this.group,
+    required this.grip,
+    required this.label,
+    this.section = '',
+  });
 
-  final ChordShelf shelf;
+  final ChordGroup group;
   final ChordGrip grip;
   final String label;
-}
 
-const chordBlocks = <ChordBlock>[
-  ChordBlock(ChordShelf.open, openG, 'G'),
-  ChordBlock(ChordShelf.open, openC, 'C'),
-  ChordBlock(ChordShelf.open, openD, 'D'),
-  ChordBlock(ChordShelf.open, openE, 'E'),
-  ChordBlock(ChordShelf.open, openEm, 'Em'),
-  ChordBlock(ChordShelf.open, openA, 'A'),
-  ChordBlock(ChordShelf.open, openAm, 'Am'),
-  ChordBlock(ChordShelf.open, openDm, 'Dm'),
-  ChordBlock(ChordShelf.open, openBm, 'Bm'),
-  ChordBlock(ChordShelf.barre, barreBm, 'Bm barre'),
-  ChordBlock(ChordShelf.seventh, openEm7, 'Em7'),
-  ChordBlock(ChordShelf.seventh, fSharp7, 'F#7'),
-];
+  /// Empty when the group is one grid. Barre, sevenths, and power
+  /// split into a second row of chips, and this is which chip.
+  final String section;
+}
 
 /// A chord sitting in the lane. How long it rings is the gap before the
 /// next attack, so dragging the edge moves every chord after it.
