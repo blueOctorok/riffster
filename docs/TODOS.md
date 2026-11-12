@@ -168,7 +168,7 @@ The domain `riffster.xyz` is already registered at Namecheap. The page lives in 
 - [ ] Decide whether plucking the strings on the page should make a sound.
 - [ ] Decide whether the page should take an email address for "tell me when the phone app is out". It needs somewhere to keep the addresses.
 - [ ] A picture for link previews (the image a link shows when it is pasted into a message).
-- [x] The Windows build is a zip of the whole release folder, `riffster-site/public/Riffster-windows.zip`, dated 12 November 2026. It is committed, so a push carries the download.
+- [x] The Windows build is a zip of the whole release folder, `riffster-site/public/Riffster-windows.zip`, dated 12 November 2026. Repacked the same day with the 120 ms timing and the rings. An app change is not in the download until this zip is rebuilt and pushed.
 - [x] Deployed to https://riffster-site.vercel.app on Pace Projects, 2026-11-12. The framework has to be Next.js. A new project was guessed as a plain file site, which served the zip and lost the page.
 - [x] Namecheap DNS pointed at Vercel on 2026-11-12. A `@` `216.150.1.1`, A `@` `216.150.16.1`, and CNAME `www` `f9f16c33a1c708b9.vercel-dns-016.com`. `www` redirects to the bare domain. Public DNS already returns the site. A network that still shows the parking page is holding the old answer.
 

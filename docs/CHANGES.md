@@ -1,5 +1,11 @@
 # Changes
 
+## 2026-11-12 — The download includes the rings
+
+The Windows zip on the site was still the build from before the timing change, so downloading it again showed the old playhead. `riffster-site/public/Riffster-windows.zip` is now the current build: 120 ms on time, the Heard box only reports a note that counted, and a gold ring on each string at the playhead.
+
+From here, a change to the app goes into that zip in the same push. A push of the source alone updates the site and leaves the download on the old program.
+
 ## 2026-11-12 — Fairer timing, and a Heard box that only reports notes
 
 First report from a real bass: sound works and the notes are detected well. Two things were off.
@@ -12,12 +18,12 @@ First report from a real bass: sound works and the notes are detected well. Two 
 
 Not changed, and worth knowing:
 
-- None of this has been played on the bass yet. It is in a local build, not in the site download.
+- None of this had been played on the bass when it was written. The user then played the older download: about 89 ms early on average, no misses, and 33 extra sounds. The timing check had not been run, so the cable delay was still a guess.
 - Where the extra sounds come from is not confirmed. The likely source is a ringing bass string being read a second time, an octave up. That would also fit the box showing a name like G2. It needs recorded clips from the bass to prove and fix (Stage 2).
 - Extra sounds are still counted for the end-of-run card ("sounds were wrong or extra notes"). That line may overstate for the same reason.
 - At a slowed speed the window is still 120 real milliseconds, while the note crosses the line more slowly. At 50% a pluck on the leading edge is still early.
 - The clips on the shelved marketing page were filmed with the 80 ms rule. One note in them is marked late at 118 ms, which is now on time. The filming script is updated, and the clips are not filmed again yet.
-- The Windows download on the site is still the earlier build.
+- The Windows download was updated later the same day. See the entry above.
 
 ## 2026-11-12 — The download is a real zip
 

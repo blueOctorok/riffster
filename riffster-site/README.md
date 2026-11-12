@@ -10,7 +10,7 @@ If a change to `src/app/globals.css` does not show up, stop the dev server and s
 
 ## The download
 
-The download file is `public/Riffster-windows.zip`. It is committed so a push updates the download. Rebuild it from the project root, then change the date in `src/lib/release.ts`:
+The download file is `public/Riffster-windows.zip`. It is committed so a push updates the download. A change to the app is not in that download until this zip is rebuilt and pushed. Rebuild it from the project root, then change the date and size in `src/lib/release.ts`:
 
 ```bash
 flutter build windows --release
