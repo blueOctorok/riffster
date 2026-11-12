@@ -155,6 +155,8 @@ The domain `riffster.xyz` is already registered at Namecheap. The page lives in 
 
 - [x] A short Next.js page: what Riffster is, and a download button. Built 2026-11-12. The paid generator will later use a server-only route on this same site. The Anthropic key stays in that server setting and is never sent to the browser or the `.exe`.
 - [x] Rebuilt the same day as a marketing page: clips of the real app, strings you can pluck, the three woods, the practice tools, guitar, and iPhone and Android marked as in the works.
+- [x] Shelved that page the same day. The homepage is a short "still in development" note with the download. The marketing page is at `/preview` and is not linked.
+- [ ] Put the marketing page back on the homepage when the product is ready. Change `src/app/page.tsx` to render `LandingPage`.
 - [x] `tool/site_clips_test.dart` films the clips from the app's own widgets. Film them again whenever the app's look changes.
 - [ ] Film the clips again once the listener has been heard on a real bass, if the look of a hit changes.
 - [ ] Decide whether plucking the strings on the page should make a sound.

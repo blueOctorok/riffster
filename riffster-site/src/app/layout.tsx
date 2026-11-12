@@ -16,9 +16,9 @@ const serif = Instrument_Serif({
 });
 
 export const metadata: Metadata = {
-  title: "Riffster — play the line, the app hears it",
+  title: "Riffster — in development",
   description:
-    "A practice app for a real bass. Notes slide along the neck, you play them, and each one is marked for pitch and timing. Out now for Windows, with iPhone and Android on the way.",
+    "Riffster is a practice app for bass and guitar, still in development. Download the early Windows build and try it.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

@@ -1,6 +1,6 @@
 # Riffster site
 
-The marketing page, with the Windows download. The Windows app stays in the folder above this one.
+The public page says the app is still in development and offers the Windows download. The full marketing page is kept at `/preview` and is not linked from the homepage. The Windows app stays in the folder above this one.
 
 ```bash
 npm run dev

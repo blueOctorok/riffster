@@ -1,5 +1,9 @@
 # Changes
 
+## 2026-11-12 — The marketing page is shelved
+
+The product is not ready to be sold that way, so the public homepage is a short note: the app is still in development, with the Windows download under it. None of the marketing page was deleted. It lives at `/preview`, which search engines are told to skip, and it is not linked from the homepage. Putting it back is one change in `src/app/page.tsx`: import `LandingPage` again.
+
 ## 2026-11-12 — The site is a marketing page, with the app on film
 
 The site now sells the app. It has the app's own finish: the smoked-glass panels, the gold with a lit top edge, the lamp-lit room, the two typefaces.
