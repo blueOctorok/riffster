@@ -39,6 +39,3 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
-
-# The Windows app. Uploaded with the site, never committed.
-/public/*.zip

@@ -6,7 +6,7 @@
 
 The page is one screen: what Riffster is, and a Windows download. The file is `riffster-site/public/Riffster-windows.zip`, a release build of the whole app (the program plus the files that have to sit beside it). It is about 35 MB. Git ignores the zip, so it is never committed. `.vercelignore` leaves it out of the ignore list on purpose, so a Vercel upload from that folder still carries it.
 
-It is live at https://riffster-site.vercel.app, on the Pace Projects team (the Vercel name for that team is `storm-chain`). The domain `riffster.xyz` is not pointed at it. The earlier plan was to keep the program on a GitHub release. This build rides with the site instead, because the GitHub command-line tool is not installed and the file has to reach the desktop. A push to GitHub would not update the download: the zip is ignored by git, so the site is deployed from this folder with the Vercel command line.
+It is live at https://riffster-site.vercel.app, on the Pace Projects team (the Vercel name for that team is `storm-chain`). `riffster.xyz` is attached to that project, and Namecheap now points the name at Vercel. The GitHub repo is connected, and Vercel's root directory is `riffster-site`, so a push builds the site and leaves the Flutter app alone. The first connection built the repo root, which is the Flutter app, and that deploy failed. The Windows zip is in the site folder, so a push carries the download too.
 
 ## 2026-11-11 — Stage 2: the bass is heard (built, not yet played on a real bass)
 
