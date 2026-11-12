@@ -1,0 +1,2 @@
+# A zip is bytes. Never rewrite its line endings.
+*.zip binary

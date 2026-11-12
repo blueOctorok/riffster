@@ -14,8 +14,19 @@ The download file is `public/Riffster-windows.zip`. It is committed so a push up
 
 ```bash
 flutter build windows --release
-tar -a -cf riffster-site/public/Riffster-windows.zip -C build/windows/x64/runner/Release .
+python - << 'PY'
+import os, zipfile
+root = "build/windows/x64/runner/Release"
+out = "riffster-site/public/Riffster-windows.zip"
+with zipfile.ZipFile(out, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+    for folder, _, names in os.walk(root):
+        for name in names:
+            full = os.path.join(folder, name)
+            archive.write(full, os.path.relpath(full, root).replace(os.sep, "/"))
+PY
 ```
+
+Pack it with Python. `tar -a` writes a tar archive and only borrows the `.zip` name, and Windows will not open that.
 
 ## The clips
 

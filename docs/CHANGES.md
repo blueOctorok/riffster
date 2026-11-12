@@ -1,5 +1,9 @@
 # Changes
 
+## 2026-11-12 — The download is a real zip
+
+The file at `riffster-site/public/Riffster-windows.zip` was a tar archive with a `.zip` name. `tar -a` does not write the zip format Windows Explorer opens, so the download from the site would not unzip. It is the same Windows build, repacked as a zip. The page now says 15 MB.
+
 ## 2026-11-12 — The marketing page is shelved
 
 The product is not ready to be sold that way, so the public homepage is a short note: the app is still in development, with the Windows download under it. None of the marketing page was deleted. It lives at `/preview`, which search engines are told to skip, and it is not linked from the homepage. Putting it back is one change in `src/app/page.tsx`: import `LandingPage` again.
