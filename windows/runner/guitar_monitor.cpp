@@ -17,6 +17,7 @@
 
 #include <algorithm>
 #include <atomic>
+#include <cmath>
 #include <cstdint>
 #include <cstring>
 #include <mutex>
@@ -40,6 +41,14 @@ constexpr REFERENCE_TIME kShortPeriod = 100000;
 // caps anything past full scale, so a hard hit flattens instead of wrapping
 // into fuzz. The copy Dart uses for pitch is left at the raw level.
 constexpr float kMonitorGain = 4.f;
+// The count-in click: a short tone that dies away. It is made here, on
+// the audio thread, because in exclusive mode this thread owns the
+// speakers and nothing else in the app can be heard.
+constexpr float kClickSeconds = 0.03f;
+constexpr float kClickLevel = 0.35f;
+constexpr float kClickHz = 1046.5f;
+constexpr float kAccentClickHz = 1568.f;
+constexpr float kTwoPi = 6.2831853f;
 
 // PKEY_Device_FriendlyName and PKEY_Device_DeviceDesc. Written out so this
 // file does not have to define every Windows GUID.
@@ -477,6 +486,17 @@ class Monitor {
       result->Success();
       return;
     }
+    if (method == "click") {
+      // Only a request is left here. The audio thread picks it up when
+      // it fills the next buffer, so the two threads never share the
+      // click's own state.
+      const auto* args = call.arguments();
+      const bool accent =
+          args != nullptr && std::holds_alternative<bool>(*args) && std::get<bool>(*args);
+      click_request_.store(accent ? 2 : 1);
+      result->Success();
+      return;
+    }
     result->NotImplemented();
   }
 
@@ -649,7 +669,9 @@ class Monitor {
         pending_.push_back(static_cast<int16_t>(clamped * 32767.f));
       }
       capture_client_->ReleaseBuffer(frames);
-      const int hop = std::max(256, capture_.format.rate / 50);
+      // About 5 ms a chunk. The detector reads the pitch as the sound
+      // arrives, so a long chunk would hold every note's result back.
+      const int hop = std::max(256, capture_.format.rate / 200);
       while (static_cast<int>(pending_.size()) >= hop) {
         QueuePcm(hop);
       }
@@ -666,7 +688,9 @@ class Monitor {
     bool post = false;
     {
       std::lock_guard<std::mutex> lock(pcm_lock_);
-      if (pcm_queue_.size() >= 8) pcm_queue_.erase(pcm_queue_.begin());
+      // 32 chunks is about 170 ms. A screen that stalls longer than
+      // that loses the oldest sound, not the newest.
+      if (pcm_queue_.size() >= 32) pcm_queue_.erase(pcm_queue_.begin());
       pcm_queue_.push_back(std::move(bytes));
       if (!pcm_posted_) {
         pcm_posted_ = true;
@@ -680,19 +704,24 @@ class Monitor {
     // Exclusive mode signals when the next whole buffer is due. Padding
     // stays non-zero while the previous buffer is still playing, so waiting
     // for it to hit zero never submits the guitar and the speakers stay quiet.
+    StartRequestedClick();
+    // The click is heard even with the speaker switch off. That switch
+    // is for the guitar.
+    const bool speaking = speaker_.load();
+    const bool clicking = click_left_ > 0;
+    if (!speaking) {
+      ring_.Clear();
+      resample_cursor_ = 0;
+    }
     UINT32 frames = 0;
     UINT32 padding = 0;
     if (render_.format.exclusive) {
       frames = render_.buffer_frames;
     } else {
       if (FAILED(render_.client->GetCurrentPadding(&padding))) return;
-      if (!speaker_.load()) {
-        ring_.Clear();
-        resample_cursor_ = 0;
-        return;
-      }
+      if (ring_.count == 0 && !clicking) return;
       const UINT32 target = static_cast<UINT32>(std::max(1, render_.format.rate * 6 / 1000));
-      if (padding >= target || padding >= render_.buffer_frames || ring_.count == 0) return;
+      if (padding >= target || padding >= render_.buffer_frames) return;
       const UINT32 available = render_.buffer_frames - padding;
       frames = std::min(available, target - padding);
     }
@@ -701,9 +730,7 @@ class Monitor {
     if (FAILED(render_client_->GetBuffer(frames, &dest))) return;
     const int bytes = static_cast<int>(frames) * render_.format.block;
     memset(dest, 0, static_cast<size_t>(bytes));
-    if (!speaker_.load()) {
-      ring_.Clear();
-      resample_cursor_ = 0;
+    if (!speaking && !clicking) {
       render_client_->ReleaseBuffer(frames, AUDCLNT_BUFFERFLAGS_SILENT);
       return;
     }
@@ -714,17 +741,42 @@ class Monitor {
                             ? static_cast<double>(capture_.format.rate) / render_.format.rate
                             : 1.0;
     for (UINT32 i = 0; i < frames; i++) {
-      if (ring_.count == 0) break;
-      const float sample = ring_.Peek() * gain_.load();
-      WriteSample(dest + i * render_.format.block, sample, render_.format);
-      resample_cursor_ += step;
-      while (resample_cursor_ >= 1.0 && ring_.count > 0) {
-        float discarded = 0;
-        ring_.Pop(&discarded);
-        resample_cursor_ -= 1.0;
+      float sample = NextClickSample();
+      if (ring_.count > 0) {
+        sample += ring_.Peek() * gain_.load();
+        resample_cursor_ += step;
+        while (resample_cursor_ >= 1.0 && ring_.count > 0) {
+          float discarded = 0;
+          ring_.Pop(&discarded);
+          resample_cursor_ -= 1.0;
+        }
       }
+      WriteSample(dest + i * render_.format.block, sample, render_.format);
     }
     render_client_->ReleaseBuffer(frames, 0);
+  }
+
+  // Audio thread only.
+  void StartRequestedClick() {
+    const int request = click_request_.exchange(0);
+    if (request == 0) return;
+    click_total_ = std::max(1, static_cast<int>(render_.format.rate * kClickSeconds));
+    click_left_ = click_total_;
+    click_phase_ = 0.f;
+    click_step_ = kTwoPi * (request == 2 ? kAccentClickHz : kClickHz) /
+                  static_cast<float>(std::max(1, render_.format.rate));
+  }
+
+  // Audio thread only. Silence when no click is sounding.
+  float NextClickSample() {
+    if (click_left_ <= 0) return 0.f;
+    // Squaring the fade makes it drop fast at first, like a struck
+    // block of wood, and not like a tone being turned down.
+    const float fade = static_cast<float>(click_left_) / static_cast<float>(click_total_);
+    const float sample = kClickLevel * fade * fade * sinf(click_phase_);
+    click_phase_ += click_step_;
+    click_left_--;
+    return sample;
   }
 
   std::mutex api_;
@@ -745,6 +797,12 @@ class Monitor {
   std::string name_;
   std::atomic<bool> speaker_{true};
   std::atomic<float> gain_{kMonitorGain};
+  // 0 is no request, 1 is a click, 2 is the higher click on beat one.
+  std::atomic<int> click_request_{0};
+  int click_left_ = 0;
+  int click_total_ = 1;
+  float click_phase_ = 0.f;
+  float click_step_ = 0.f;
 
   Endpoint capture_;
   Endpoint render_;

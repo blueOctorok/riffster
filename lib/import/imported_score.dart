@@ -1,4 +1,5 @@
 import '../models/fretting_finger.dart';
+import '../models/instrument.dart';
 import '../models/tab_note.dart';
 import '../models/tab_song.dart';
 import '../music/part_names.dart';
@@ -10,11 +11,15 @@ class ImportedScore {
     required this.title,
     required this.tempoBpm,
     required this.tracks,
+    this.bars = const [],
   });
 
   final String title;
   final int tempoBpm;
   final List<ImportedTrack> tracks;
+
+  /// Where the file's bar lines fall. Every part shares them.
+  final List<SongBar> bars;
 
   factory ImportedScore.fromJson(Map<String, dynamic> json) {
     final rawTracks = json['tracks'];
@@ -31,10 +36,12 @@ class ImportedScore {
       final notes = _notesFromJson(track['notes']);
       if (notes.isEmpty) continue;
       final name = track['name'];
+      final strings = track['strings'];
       tracks.add(
         ImportedTrack(
           name: name is String && name.trim().isNotEmpty ? name.trim() : 'Guitar',
           notes: notes,
+          stringCount: strings is num ? strings.round() : 6,
         ),
       );
     }
@@ -45,6 +52,7 @@ class ImportedScore {
       title: title is String ? title.trim() : '',
       tempoBpm: tempo is num && tempo > 0 ? tempo.round() : 120,
       tracks: namePlayableParts(tracks),
+      bars: _barsFromJson(json['bars']),
     );
   }
 
@@ -53,19 +61,56 @@ class ImportedScore {
   TabSong toSong(ImportedTrack track, {required String fallbackTitle}) {
     final songTitle = title.isNotEmpty ? title : fallbackTitle;
     final showTrack = track.name.isNotEmpty && track.name != songTitle;
+    final instrument = track.instrument;
     return TabSong(
       title: showTrack ? '$songTitle — ${track.name}' : songTitle,
       tempoBpm: tempoBpm,
-      notes: assignPositionFingers(track.notes),
+      notes: assignPositionFingers(track.notes, instrument: instrument),
+      instrument: instrument,
+      bars: bars,
     );
   }
 }
 
 class ImportedTrack {
-  const ImportedTrack({required this.name, required this.notes});
+  const ImportedTrack({
+    required this.name,
+    required this.notes,
+    this.stringCount = 6,
+  });
 
   final String name;
   final List<TabNote> notes;
+
+  /// How many strings the file gave this part.
+  final int stringCount;
+
+  /// Four strings is a bass. Anything else sits on the six-line staff.
+  Instrument get instrument {
+    return stringCount == Instrument.bass.stringCount
+        ? Instrument.bass
+        : Instrument.guitar;
+  }
+}
+
+List<SongBar> _barsFromJson(Object? raw) {
+  if (raw is! List) return const [];
+  final bars = <SongBar>[];
+  for (final item in raw) {
+    if (item is! Map) continue;
+    final start = item['startMs'];
+    final end = item['endMs'];
+    final beats = item['beats'];
+    if (start is! num || end is! num || end <= start) continue;
+    bars.add(
+      SongBar(
+        startMs: start.round(),
+        endMs: end.round(),
+        beats: beats is num && beats > 0 ? beats.round() : 4,
+      ),
+    );
+  }
+  return bars;
 }
 
 List<TabNote> _notesFromJson(Object? raw) {

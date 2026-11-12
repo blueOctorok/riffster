@@ -1,4 +1,5 @@
 import '../models/fretting_finger.dart';
+import '../models/instrument.dart';
 import 'chord_book.dart';
 
 /// How many fret spaces a chart shows when the shape fits.
@@ -142,7 +143,7 @@ ChartString _column(ChordGrip grip, int string, {required bool flats}) {
   final letters = flats ? _flatLetters : _pitchLetters;
   final pitch = fret == null
       ? null
-      : letters[(openStringMidi[string - 1] + fret) % 12];
+      : letters[(Instrument.guitar.openStringMidi[string - 1] + fret) % 12];
   return ChartString(fret: fret, finger: finger, pitch: pitch);
 }
 

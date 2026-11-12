@@ -1,4 +1,5 @@
 import '../models/fretting_finger.dart';
+import '../models/instrument.dart';
 import '../models/tab_note.dart';
 import 'chord_book.dart';
 
@@ -29,8 +30,12 @@ const _handMemoryMs = 1200;
 /// middle finger. A fast hop across strings on the same fret gives each
 /// string its own finger, because one finger cannot jump and come back at
 /// that speed. A stored finger is kept. Open strings stay hollow. A shape
-/// the hand cannot cover stays hollow.
-List<TabNote> assignPositionFingers(List<TabNote> notes) {
+/// the hand cannot cover stays hollow. The chord book is guitar grips, so
+/// on a bass every stack is guessed from the shape.
+List<TabNote> assignPositionFingers(
+  List<TabNote> notes, {
+  Instrument instrument = Instrument.guitar,
+}) {
   if (notes.isEmpty) return notes;
 
   final times = notes.map((note) => note.timeMs).toSet().toList()..sort();
@@ -47,7 +52,7 @@ List<TabNote> assignPositionFingers(List<TabNote> notes) {
   final live = <int>[];
   for (final beat in beats) {
     if (_isChord(notes, beat)) {
-      _assignChord(notes, beat, assigned);
+      _assignChord(notes, beat, assigned, instrument);
       live.clear();
       continue;
     }
@@ -108,7 +113,12 @@ bool _isChord(List<TabNote> notes, List<int> indexes) {
   return needing >= 2;
 }
 
-void _assignChord(List<TabNote> notes, List<int> indexes, List<FrettingFinger?> assigned) {
+void _assignChord(
+  List<TabNote> notes,
+  List<int> indexes,
+  List<FrettingFinger?> assigned,
+  Instrument instrument,
+) {
   final pending = [
     for (final index in indexes)
       if (notes[index].finger == null && notes[index].fret > 0) index,
@@ -117,7 +127,9 @@ void _assignChord(List<TabNote> notes, List<int> indexes, List<FrettingFinger?> 
 
   // A known grip wins over the guess. The book is also what chord practice
   // will show, so the song and the practice screen stay on one hand.
-  final grip = matchingGrip([for (final index in indexes) notes[index]]);
+  final grip = instrument == Instrument.guitar
+      ? matchingGrip([for (final index in indexes) notes[index]])
+      : null;
   if (grip != null) {
     for (final index in pending) {
       final finger = grip.fingerOn(notes[index].string);

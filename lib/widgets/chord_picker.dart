@@ -2,10 +2,11 @@ import 'package:flutter/material.dart';
 
 import '../music/chord_catalog.dart';
 import '../music/chord_lane.dart';
+import '../theme/riffster_theme.dart';
 
-const _gold = Color(0xFFE4B15A);
-const _ink = Color(0xFF2A241C);
-const _quiet = Color(0xFF8A8175);
+const _gold = RiffColors.gold;
+const _ink = RiffColors.cardInk;
+const _quiet = RiffColors.quiet;
 
 /// The group chips above the chord cards. One group is open at a time.
 /// Barre adds a shape row and a quality row, because twelve roots times
@@ -127,7 +128,7 @@ class _Choice extends StatelessWidget {
         selected ? _gold : const Color(0x00000000),
       ),
       side: WidgetStatePropertyAll(
-        BorderSide(color: selected ? _gold : const Color(0xFF4A433A)),
+        BorderSide(color: selected ? _gold : RiffColors.lineStrong),
       ),
     );
     return FilledButton(style: style, onPressed: onTap, child: Text(label));

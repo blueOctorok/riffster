@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:riffster/models/instrument.dart';
 import 'package:riffster/music/chord_book.dart';
 import 'package:riffster/music/chord_catalog.dart';
 import 'package:riffster/music/chord_lane.dart';
@@ -54,7 +55,9 @@ Set<int> _classes(ChordGrip grip) {
   return {
     for (var string = 1; string <= 6; string++)
       if (grip.frets[string - 1] != null)
-        (openStringMidi[string - 1] + grip.frets[string - 1]!) % 12,
+        (Instrument.guitar.openStringMidi[string - 1] +
+                grip.frets[string - 1]!) %
+            12,
   };
 }
 

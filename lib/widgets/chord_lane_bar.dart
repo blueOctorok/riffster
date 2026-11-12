@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 
 import '../music/chord_lane.dart';
+import '../theme/riffster_theme.dart';
 
-const _gold = Color(0xFFE4B15A);
-const _ink = Color(0xFF8A8175);
-const _chip = Color(0xFF241F1A);
+const _gold = RiffColors.gold;
+const _ink = RiffColors.quiet;
+const _chip = RiffColors.panel;
 
 /// The chords dropped so far, in the order they will be played.
 class ChordLaneBar extends StatelessWidget {
@@ -75,7 +76,7 @@ class _DropGap extends StatelessWidget {
           margin: const EdgeInsets.only(right: 8),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: hot ? _gold : const Color(0xFF3A342C)),
+            border: Border.all(color: hot ? _gold : RiffColors.line),
           ),
           child: Text(hint, style: const TextStyle(color: _ink, fontSize: 13)),
         );
@@ -117,7 +118,7 @@ class _LaneChip extends StatelessWidget {
             color: _chip,
             borderRadius: BorderRadius.circular(8),
             border: Border.all(
-              color: candidate.isNotEmpty ? _gold : const Color(0xFF3A342C),
+              color: candidate.isNotEmpty ? _gold : RiffColors.line,
               width: candidate.isNotEmpty ? 2 : 1,
             ),
           ),

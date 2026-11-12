@@ -1,63 +1,85 @@
 import 'dart:math' as math;
-
-/// Loud enough to be a plucked string, quiet enough to ignore the room.
-const _silenceRms = 0.02;
+import 'dart:typed_data';
 
 /// Below this, the repeating period is not trusted.
 const _periodThreshold = 0.15;
 
-/// The MIDI note in [samples], or null when the window is quiet or unclear.
+/// How many samples one cycle of the wave takes, or null when the
+/// window has no clear pitch. The answer can fall between two samples.
 ///
-/// This is the YIN period picker. It looks for the first lag where the
-/// wave repeats, which is the fundamental. A guitar's octave overtone is
-/// often louder than the root, and taking the strongest repeat would hear
-/// that overtone instead of the note the player fretted.
-int? midiFromSamples(List<double> samples, int sampleRate) {
-  if (sampleRate < 8000 || samples.length < 1024) return null;
+/// The window is [length] samples of [samples], beginning at [start].
+///
+/// This is the YIN period picker. Slide a copy of the wave along
+/// itself and measure how different the two are at each shift. At a
+/// shift of exactly one cycle they line up and the difference drops.
+/// The first shift where that happens is the note.
+///
+/// "First" is the point. A string's octave overtone is often louder
+/// than its root. The deepest dip could be that overtone's, an octave
+/// too high. The first deep dip is the note the player fretted.
+///
+/// Only shifts up to half the window are tried, so every answer has
+/// been seen to repeat at least once. A window too short for a low
+/// note returns null instead of guessing, and the caller asks again
+/// once more sound has arrived.
+double? periodIn(
+  Float64List samples, {
+  required int start,
+  required int length,
+  required int shortest,
+  required int longest,
+}) {
+  final maxLag = math.min(longest, length ~/ 2);
+  if (maxLag <= shortest) return null;
+  final compared = length - maxLag;
 
-  var energy = 0.0;
-  for (final sample in samples) {
-    energy += sample * sample;
-  }
-  if (energy / samples.length < _silenceRms * _silenceRms) return null;
-
-  // Guitar range: below the low E, up through a high fret on the top string.
-  final minLag = math.max(2, sampleRate ~/ 1200);
-  final maxLag = math.min(samples.length ~/ 2, sampleRate ~/ 70);
-  if (minLag >= maxLag) return null;
-
-  final difference = List<double>.filled(maxLag + 1, 0);
+  var runningSum = 0.0;
+  var before = 1.0;
+  var lowest = 1.0;
+  int? found;
   for (var lag = 1; lag <= maxLag; lag++) {
-    var sum = 0.0;
-    // Every other sample. The period is still obvious, and the playhead
-    // does not have to wait on a full search.
-    for (var i = 0; i < samples.length - lag; i += 2) {
+    var difference = 0.0;
+    for (var i = start; i < start + compared; i++) {
       final delta = samples[i] - samples[i + lag];
-      sum += delta * delta;
+      difference += delta * delta;
     }
-    difference[lag] = sum;
-  }
+    runningSum += difference;
+    // Dividing by the average so far makes "low" mean low for this
+    // wave. Without it a quiet note and a loud one need two thresholds.
+    final dip = runningSum == 0 ? 1.0 : difference * lag / runningSum;
 
-  final normalized = List<double>.filled(maxLag + 1, 1);
-  var running = 0.0;
-  for (var lag = 1; lag <= maxLag; lag++) {
-    running += difference[lag];
-    normalized[lag] = difference[lag] * lag / running;
+    if (found == null) {
+      if (lag >= shortest && dip < _periodThreshold) {
+        found = lag;
+        lowest = dip;
+      } else {
+        before = dip;
+      }
+    } else if (dip < lowest) {
+      before = lowest;
+      lowest = dip;
+      found = lag;
+    } else {
+      // The dip has turned back up, so [found] is its bottom. The true
+      // bottom sits between samples. A parabola through the three
+      // points around it says where.
+      final curve = before - 2 * lowest + dip;
+      final nudge = curve <= 0 ? 0.0 : (before - dip) / (2 * curve);
+      return found + nudge.clamp(-0.5, 0.5);
+    }
   }
+  // Still falling at the last shift tried. The real bottom may be
+  // past the end of the window, so this is not an answer yet.
+  return null;
+}
 
-  var lag = minLag;
-  while (lag <= maxLag && normalized[lag] > _periodThreshold) {
-    lag++;
-  }
-  if (lag > maxLag) return null;
-  while (lag + 1 <= maxLag && normalized[lag + 1] < normalized[lag]) {
-    lag++;
-  }
+/// The pitch, in hertz, of a MIDI note. [midi] may sit between notes.
+double hertzOfMidi(num midi) => 440 * math.pow(2, (midi - 69) / 12).toDouble();
 
-  final frequency = sampleRate / lag;
-  final midi = (69 + 12 * (math.log(frequency / 440) / math.ln2)).round();
-  if (midi < 28 || midi > 96) return null;
-  return midi;
+/// The MIDI note of a wave that repeats every [period] samples.
+int midiOfPeriod(double period, double sampleRate) {
+  final hertz = sampleRate / period;
+  return (69 + 12 * (math.log(hertz / 440) / math.ln2)).round();
 }
 
 /// Note name for the heard pitch, such as E2.

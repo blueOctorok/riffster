@@ -1,5 +1,84 @@
 # Changes
 
+## 2026-11-11 — Stage 2: the bass is heard (built, not yet played on a real bass)
+
+The code for Stage 2 is in. None of it has been heard with a real instrument yet, so the stage is not finished. The list of what is unchecked is at the bottom of this entry.
+
+What you see:
+
+- The low strings of a bass are now in range. The listener covers each instrument's own range: on bass, two semitones under the open E up to fret 24 on the G string.
+- A TIMING gauge in the strip at the top right. A dot shows how many milliseconds early or late the last note was, with a green band as wide as "on time".
+- The count-in clicks: a higher tick on beat one, then three lower ones. It sounds only when a guitar cable input is open. With the room mic there is no click, because the mic would hear it. There is no switch to turn the click off yet.
+- A Timing check button appears in the input row once an input is open. It plays four clicks to get ready and eight to measure, you play one note on each, and it shows "Your notes arrive N ms after the click." Use it saves that number for that input, and the button then reads "Timing N ms". From then on scoring uses the measured number and not the guess of 20, 35, or 50 ms. With the room mic the button is greyed out.
+- In a debug build started from the project folder, a Record clip button saves what the cable heard to `test/clips/` as a WAV, with a text file of the notes on the stage beside it. This is a tool for tuning the listener. It is not in a release build.
+
+What changed underneath:
+
+- `lib/audio/pluck_detector.dart` is the new listener, used by both instruments. It answers two questions apart. When was the string plucked: the moment the level jumps. What note was it: the pitch, read a few cycles later once the wave has settled. The score uses the pluck time, so a low note that takes longer to name is not called late. A pitch that changes with no silence (a hammer-on, or a fast line) is a new note, and the detector searches for the exact sample where the old note gave way. A strum with no single pitch is reported at once with no pitch, and counts only toward a chord.
+- `lib/audio/pitch.dart` finds how long one cycle of the wave is (the YIN method) and returns nothing when the window is too short to be sure, where the old code guessed.
+- `lib/audio/sample_clock.dart` turns "sample number 48,213" into a time on the app's clock. Chunks of sound reach the app late but never early, so the quickest recent arrival is the honest one.
+- The exclusive cable path sends sound to the app every 5 ms (it was 20 ms).
+- The click is made on the native audio thread in exclusive mode, in `windows/runner/guitar_monitor.cpp`, because that thread owns the speakers there. On the shared path it is a tiny sound loaded into the speaker engine.
+- `lib/music/timing_check.dart` works out the delay: each click is paired with its nearest note, and the answer is the middle value, so one fumbled note does not move it. Too few notes, or notes spread too widely, give no answer.
+- `lib/data/settings_store.dart` keeps the measured delay per input route (device name plus the way Windows opened it).
+- `test/bass_clips_test.dart` scores the listener against every clip in `test/clips/` and keeps the best score each clip has had in `test/clips/best.json`. A change that hears a clip worse fails the test.
+
+One thing done differently from the plan, on purpose:
+
+- The plan said the detector would run off the screen thread. It runs on the main thread. Measured on made-up audio, it costs between 1 and 20 ms of work per second of sound, which is small next to the 16 ms a frame has 60 times a second. A second thread would add a hand-off delay to every note and more code to keep right. If the performance overlay shows dropped frames on a real bass, this is the first thing to move.
+
+Checked:
+
+- 106 automated tests pass, and the analyzer is clean. The listener's tests use made-up string sounds: every open bass string and its 12th fret, a low E under a louder overtone, two notes with no gap, the same note plucked three times, a fast line with no gaps, a hammer-on, a strummed chord, and the guitar's range. Pluck times land within 5 ms, hammer-ons within 10 ms.
+- The Windows app builds with the new native click and runs. With the room mic on, real sound flowed through the new listener to the HEARD box with no errors.
+
+Not checked yet, said plainly:
+
+- No bass or guitar was plugged in. The right note names on a real bass, the pluck times, and the two thresholds (how loud counts as a note, how sharp a jump counts as a pluck) are first guesses until clips exist.
+- The click has never been heard. It compiles and the code path is tested, and that is all. Neither the exclusive click nor the shared one has sounded out of a speaker.
+- The timing check has only been run by test code with made-up notes. Its number includes the time the click takes to leave the speakers, so it is right for a player following the count-in click by ear. For a player following the screen alone it may over-correct by a few milliseconds in exclusive mode, and by more on the shared path.
+- The clip test has no clips, so its real-instrument case is skipped.
+- Smoothness with the performance overlay is still unmeasured.
+
+## 2026-11-11 — Stage 1: the play area is rebuilt, and bass comes first
+
+The direction changed: Riffster is now built for a 4-string bass first, then guitar. The plan has nine stages and this is the first. The look is waiting on approval before it spreads to the rest of the app.
+
+What you see:
+
+- The first launch asks "What are you playing?", Bass or Guitar. The answer and the wood are saved, and a switch at the top changes instrument at any time. Bass opens on its own three-bar warm-up.
+- The stage is a fretboard: wood with grain drawn in code, a bone nut with the string names, metal strings that get thicker toward the low string, and bar lines that look like fret wire with bar numbers. It is taller, and the strings and notes are larger. Ebony, Rosewood, and Maple are still the choices.
+- Notes are glass discs in the finger colors, with a slim tail for how long to hold. Open strings are still rings. Chord chips and the barre outline are kept.
+- A song no longer starts on its first note. The clock rests one bar early, and Play counts 4, 3, 2, 1 at the song's tempo. Pausing and playing again backs up one bar and counts in. A loop counts in only before its first pass.
+- The playhead is gold, sits a fifth of the way in, and has a band around it exactly as wide as "on time" (80 ms each side).
+- Playing a note: it swells as it arrives, a hit bursts a green ring and shakes the string, early or late shows the word in gold, and a miss dims. The count of notes in a row bounces, and the playhead glows warmer at 10, 25, and 50.
+- A strip at the top right shows the note heard, how it was judged, notes in a row, and the share on time.
+- The dock under the stage: Restart, Play, Loop with a range of bars, speed from 50 to 100 percent, the position slider, and the clock. Slow practice is still judged in real milliseconds.
+- Keys: Space plays and pauses, R restarts, L loops, minus and plus change the speed.
+- When a run ends, a card slides up: percent on time, counts of on time, early, late, and missed, wrong or extra notes counted apart from timing, whether you lean early or late, and which bars held the misses. Dragging the slider back after a run keeps the marks on the notes, so the run can be looked over. Play clears them from that spot forward.
+- Every control that was on the screen is still there: Open, Chords, Song, Loop, Play, the slider, Cable, iRig, Mic, Look again, the level bar, volume, Speaker, and the wood. The chord book and lane work as before. Chords is hidden on bass, because the book is guitar shapes.
+
+What changed underneath:
+
+- `lib/music/practice_run.dart` owns the clock, the marks, the loop, the speed, and the streak. It has no timer of its own, so tests move the clock by hand.
+- `lib/music/song_timeline.dart` sorts a song once and finds notes with a binary search, so a long file costs the same per frame as a short one.
+- The stage is two layers in `lib/widgets/stage/`: the board, painted once, and the notes, painted every frame. A frame no longer rebuilds the screen. The level meter does not either.
+- `lib/theme/riffster_theme.dart` holds every color, text style, and timing. Instrument Serif and Instrument Sans ship in the app under the SIL Open Font License.
+- `lib/data/settings_store.dart` keeps the instrument and wood in a small JSON file in the app's data folder.
+- The Guitar Pro reader now sends bar times and each part's string count. A four-string part opens as a bass. These two were pulled forward from Stage 4, because bar lines and the bar loop need them.
+- `flutter test tool/stage_previews_test.dart` saves pictures of the stage and the whole screen into `build/stage_previews/`.
+
+Not checked yet, said plainly:
+
+- No instrument was plugged in for this stage. Hits, early, late, and the string shake were driven by test code, not by a real pluck.
+- The low bass notes are still not heard. The pitch detector's floor is above them until Stage 2.
+- Smoothness was not measured with the performance overlay.
+- The Space key was tested in code. In the running app I only confirmed the Play button.
+
+## 2026-11-09 — Cable, iRig, and mic are separate switches
+
+The practice screen has three switches: Cable, iRig, and Mic. One of them is listened to at a time. The Rocksmith cable is chosen when it is plugged in, and an iRig is chosen when the cable is absent. The room mic starts off, and plugging a guitar in turns it off. Turning a switch off leaves it off until you turn it on or unplug it and plug it back in. The mic can be turned on for scoring, and it is still never played through the speakers.
+
 ## 2026-11-09 — The chord book is grouped
 
 Chords still opens a grid of cards you drag onto the lane. The book is no longer one pile. Open, Barre, Sevenths, Sus, Power, and More are chips, and the grid shows that group. Barre has a second row for the shape (E or A) and a third for the quality (major, minor, 7, m7, maj7), twelve roots at a time. Sevenths split into 7, m7, and maj7. Power splits into the low E string and the A string. A barre that shares a name with an open chord keeps the shape in the label, so the lane can show Bm and Bm E-shape. Every card was checked against the chord's notes before it shipped. There is still no Next button.

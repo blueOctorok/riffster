@@ -2,6 +2,91 @@
 
 Check these off in order. The product decisions live in `PROJECT_ROADMAP.md`. Do not pull in Proven or `resume-wallet`.
 
+## Bass first: the nine stages
+
+Since 2026-11-11 this section is the order of work. The numbered sections further down are the earlier guitar-first list. They are kept for their history, and their open items are picked up by the stage named here.
+
+### Stage 1: The play area
+
+- [x] Bass or Guitar chooser on first launch, saved, with a switch at the top. A bass warm-up on four strings.
+- [x] One theme file for colors, type, and timings. Instrument Serif and Instrument Sans ship in the app.
+- [x] The stage is its own widget. Only the notes layer repaints each frame.
+- [x] The song rests one bar before its first note, and Play counts one bar in. Pause, the slider, and a loop each have a rule for the count.
+- [x] Fretboard look: wood grain, nut, metal strings by thickness, glass notes with tails, fret-wire bar lines, gold playhead with the on-time band.
+- [x] Motion: a note swells as it arrives, a hit bursts and shakes the string, early or late shows the word, a miss dims, the streak warms the playhead.
+- [x] Feedback strip: note heard, how it was judged, notes in a row, share on time.
+- [x] Dock: Restart, Play, Loop over a range of bars, speed 50 to 100 percent, slider, clock. Keys: Space, R, L, minus, plus.
+- [x] End-of-run card with counts, early or late tendency, and the bars that held misses.
+- [x] Every earlier control and the chord book still work. Tests cover them.
+- [x] The user approved the look on 2026-11-11. It can spread to the other screens.
+- [ ] Hits are seen with a real instrument plugged in. So far only test code has driven them.
+- [ ] Smoothness is checked with Flutter's performance overlay while a fast line plays.
+
+### Stage 2: The bass is heard
+
+Built on 2026-11-11. The boxes still open need a bass plugged in.
+
+- [x] New pluck detector: range from the instrument (bass about 35 to 420 Hz), pluck time split from pitch, a pitch change with no silence is a new note.
+- [x] Tests with made-up waves: low E reads E1 under a louder overtone, two back-to-back notes give two plucks, pluck time within 10 ms.
+- [x] A debug-only Record clip button saves what the cable heard, with the notes on the stage as its written answer. A test scores the detector against every clip and fails if one is heard worse than before.
+- [ ] Record the clips on the user's bass: each open string, fret 12 on each, a slow line, and a fast line with no gaps. Fix each `.txt` if what was played differs from the stage.
+- [ ] Tune the two detector thresholds (`_floor`, `_jump` in `pluck_detector.dart`) against those clips.
+- [ ] The detector runs off the screen thread. Left on the main thread on purpose: it measured 1 to 20 ms of work per second of sound. Move it only if the performance overlay shows dropped frames. Waiting on the user's OK for this change of plan.
+- [ ] On the bass: open E, A, D, G and fret 12 on each show the right name.
+- [x] Timing check: eight notes along with a click, and the measured delay is stored per input. Scoring uses it in place of the guessed 20, 35, and 50 ms. The countdown gets the same click.
+- [ ] The click is heard on the exclusive path and on the shared path. So far it has only compiled.
+- [ ] The timing check is run on the real bass, and a note played on the click then reads "On the beat".
+- [x] A small gauge in the feedback strip shows how many milliseconds early or late the last pluck was. Approved 2026-11-11.
+- [ ] Decide whether the count-in click needs an off switch.
+
+### Stage 3: The shell
+
+- [ ] Side rail: Home, Songs, Practice, Build, Create, Library, with the instrument switch and an input chip.
+- [ ] Input panel: Cable, iRig, Mic, Look again, the timing check, and a tuner needle.
+- [ ] Every area uses the Stage 1 look. The chord book keeps its layout and behaviour.
+
+### Stage 4: Songs, melody on bass, Library
+
+- [x] The file reader sends bar times and each part's string count. Done early, in Stage 1.
+- [ ] The reader also sends tuning. The part picker filters by instrument. A 5-string part is shown as not supported yet. Today it opens on the six-line staff.
+- [ ] Shared code that places a list of pitches on the neck with the least hand movement, with tests.
+- [ ] Melody on bass from the user's own file: any part, moved by whole octaves, a chord becomes its top note, low or high on the neck.
+- [ ] Library: one small file per item with the best score.
+- [ ] Riffster originals: about a dozen bass riffs and a few bass melodies written for the app. The user judges them on the bass.
+- [ ] A few very old copyright-free tunes arranged by us as bass melodies.
+
+### Stage 5: Practice
+
+- [ ] Scales and arpeggios by rule, as scored runs.
+- [ ] Drills with knobs: key, length, note value, difficulty.
+- [ ] Find the note.
+- [ ] Trouble spots: one tap loops the bars with misses at 70 percent and steps the speed up after three clean passes.
+- [ ] Days in a row and minutes played on Home. No trophies.
+- [ ] Drum groove made in code and mixed in the native audio thread. Muted when the room mic is the source.
+
+### Stage 6: Build for bass
+
+- [ ] The lane accepts a grip, a single note, a pattern, or a rest. Guitar chord behaviour and tests do not change.
+- [ ] Clickable bass neck, frets 0 to 12, with note names.
+- [ ] Pattern cards drawn from the chosen root.
+- [ ] Lane tempo, eighth-note snap, bar lines in 4/4.
+
+### Stage 7: Create, on a private test key
+
+- [ ] Request form: lick, riff, or exercise, key, tempo, difficulty, length, feel, optional "inspired by".
+- [ ] The reply is pitches and rhythm. The app places and checks them.
+- [ ] The key is read from an environment variable in a debug build only. It is never in a release build.
+- [ ] Assists as droppable suggestions: continue, variation, easier, harder, a riff from the misses, a bass line under guitar chords.
+- [ ] A legal check on "inspired by" before money changes hands.
+
+### Stage 8: Paid
+
+- [ ] `riffster.xyz` generate route holding the key, sign-in, payment. The app swaps the test key for the site.
+
+### Stage 9: Guitar gets the same areas
+
+- [ ] Practice, the neck in Build, and Create work for guitar.
+
 ## Done
 
 - [x] Flutter Windows app scaffold.
@@ -39,6 +124,7 @@ One list of grips: the name, the fret on each string, and the finger on each fre
 
 - [x] A single note is hit, miss, early, or late from its MIDI pitch and the clock. The same pitch on another string still hits. A chord is scored from the strum only. The window is 80 ms on time, and 250 ms before it counts as a different beat.
 - [x] The app listens to the guitar input. The Rocksmith Real Tone cable is chosen when Windows lists Rocksmith USB Guitar Adapter, including when it is plugged in after the app is open, and that signal plays out the PC speakers. An iRig recording device is the fallback. A PC microphone is never played back, because that loop howls. Speakers (iRig USB) alone is not the guitar input. Rocksmith's song files stay closed. A level bar shows the signal. Play draws the result on the note: green hit, gold early or late, rose slash for a miss. A note that scrolls past with no pluck is a miss. A click and the other tracks are not built.
+- [x] Cable, iRig, and Mic are separate switches. One is on at a time. The mic starts off, and a guitar plug-in turns it off. The mic can be turned on for scoring and is still not played through the speakers.
 - [ ] The USB-C iRig is confirmed on a real guitar. The app can also play a click or the tab's other tracks.
 - [ ] Listening and playback happen at the same time. A tuner-style "recording only" session is not enough.
 - [ ] Each snippet of guitar becomes one pitch.

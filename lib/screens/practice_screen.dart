@@ -3,28 +3,47 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
+import 'package:flutter/services.dart';
 
+import '../audio/clip_recorder.dart';
 import '../audio/guitar_ear.dart';
 import '../audio/pitch.dart';
 import '../data/demo_song.dart';
+import '../data/settings_store.dart';
 import '../import/guitar_pro_reader.dart';
 import '../import/open_guitar_pro.dart';
 import '../models/fretting_finger.dart';
-import '../models/tab_note.dart';
+import '../models/instrument.dart';
 import '../models/tab_song.dart';
 import '../music/chord_catalog.dart';
 import '../music/chord_lane.dart';
-import '../music/score_note.dart';
+import '../music/practice_run.dart';
 import '../theme/neck_theme.dart';
+import '../theme/riffster_theme.dart';
 import '../widgets/chord_lane_bar.dart';
 import '../widgets/chord_palette.dart';
 import '../widgets/chord_picker.dart';
 import '../widgets/finger_colors.dart';
-import '../widgets/sideways_tab.dart';
+import '../widgets/instrument_switch.dart';
+import '../widgets/practice/feedback_strip.dart';
+import '../widgets/practice/input_bar.dart';
+import '../widgets/practice/run_summary_card.dart';
+import '../widgets/practice/timing_check_dialog.dart';
+import '../widgets/practice/transport_dock.dart';
+import '../widgets/room.dart';
+import '../widgets/stage/stage_view.dart';
 
-/// The practice screen. It scrolls the loaded song, or one chord from the course.
+/// The practice screen. It scrolls the loaded song, or the chords you
+/// have dropped into the lane.
+///
+/// This screen owns the things with a lifetime: the two runs, the
+/// frame timer, and the audio input. It hands them to widgets that
+/// listen for themselves, so a frame of animation or a jump of the
+/// level meter never rebuilds the screen.
 class PracticeScreen extends StatefulWidget {
-  const PracticeScreen({super.key});
+  const PracticeScreen({super.key, required this.store});
+
+  final SettingsStore store;
 
   @override
   State<PracticeScreen> createState() => _PracticeScreenState();
@@ -33,67 +52,72 @@ class PracticeScreen extends StatefulWidget {
 class _PracticeScreenState extends State<PracticeScreen>
     with SingleTickerProviderStateMixin {
   final _reader = GuitarProReader();
+  final _ear = GuitarEar();
   late final Ticker _ticker;
-  TabSong _song = demoSong;
-  Duration _position = Duration.zero;
 
-  /// The chord grid. The lane is an ordinary song, so the staff and the
-  /// scorer do not learn a second kind of note.
+  /// The song and the chord lane each keep their own run. Leaving the
+  /// song for the chord book and coming back finds its place, its
+  /// marks, and its loop exactly as they were.
+  late final PracticeRun _songRun;
+  final _laneRun = PracticeRun(songFromLane(const []));
+
+  /// The ticker reports time since it started. The run wants the time
+  /// since the last frame, so the last reading is kept to subtract.
+  var _lastTick = Duration.zero;
+
+  /// Time since the run's clock last moved. A pluck lands between two
+  /// frames, and the run only knows the time of the last one.
+  final _sinceFrame = Stopwatch();
+
+  /// The count-in beat that last clicked, so each beat clicks once.
+  int? _countBeat;
+
+  /// Null outside a debug build.
+  final _clips = ClipRecorder.forThisBuild();
+
   var _chords = false;
-  var _loop = false;
 
   /// Which page of the chord book is open. Remembered while the window
   /// is open, so leaving and coming back does not dump you on Open.
   var _group = ChordGroup.open;
   var _section = '';
   final _lane = <LaneChord>[];
-  TabSong _built = songFromLane(const []);
+  var _opening = false;
 
-  /// The song's place, kept while the course is open so Song can return there.
-  Duration _songPosition = Duration.zero;
+  /// The bars the song's loop covers, counted from zero. A null end
+  /// means the last bar, whatever song is loaded.
+  var _loopFromBar = 0;
+  int? _loopToBar;
 
-  /// Where the song was when Play was pressed. The ticker itself restarts at zero.
-  Duration _resumeFrom = Duration.zero;
-  bool _playing = false;
-  bool _opening = false;
-
-  /// Play was running when the slider was grabbed, so letting go continues
-  /// from the new spot instead of from where the ticker had been.
-  bool _resumeAfterScrub = false;
-
-  /// Ebony is the dark board the app opened with. Maple and rosewood
-  /// only change the wood under the same notes.
-  NeckTheme _neck = ebonyNeck;
-
-  final _ear = GuitarEar();
   Timer? _guitarWatch;
-  final _marks = <TabNote, ScoreMark>{};
-  String? _heard;
-  String? _inputName;
-  String? _irigSpeaker;
-  List<String> _inputs = const [];
-  var _inputIsGuitar = false;
-  var _exclusive = false;
-  var _latencyMs = inputLatencyMs;
+  HeardInput? _input;
   var _looking = false;
-  var _speakerReady = false;
+  var _earFailed = false;
   var _speakerOn = false;
 
   /// Full is the monitor level that sounded right. Lower turns only the
   /// speaker copy down. The pitch copy stays at the raw cable level.
   var _volume = 1.0;
-  var _level = 0.0;
-  ScoreMark? _mark;
-  var _earFailed = false;
+  final _level = ValueNotifier(0.0);
+
+  PracticeRun get _run => _chords ? _laneRun : _songRun;
+  SettingsStore get _store => widget.store;
+
+  bool get _canPlay => !_opening && _run.timeline.moments.isNotEmpty;
 
   @override
   void initState() {
     super.initState();
+    _songRun = PracticeRun(warmUpFor(_store.instrument ?? Instrument.bass));
     _ticker = createTicker(_onTick);
+    _songRun.addListener(_syncTicker);
+    _laneRun.addListener(_syncTicker);
     // Widget tests must not open the microphone or the speaker.
     if (Platform.environment.containsKey('FLUTTER_TEST')) return;
-    _ear.onPitch = _onGuitar;
-    _ear.onLevel = _onLevel;
+    _ear.instrument = _run.song.instrument;
+    _ear.onPluck = _onPluck;
+    _ear.onSound = _clips?.add;
+    _ear.onLevel = (level) => _level.value = level;
     _ear.onReady = _onReady;
     _ear.start().catchError((Object _) {
       if (mounted) setState(() => _earFailed = true);
@@ -101,7 +125,7 @@ class _PracticeScreenState extends State<PracticeScreen>
     // A cable plugged in after the window opens is invisible until we ask
     // Windows again. The first list is taken at startup.
     _guitarWatch = Timer.periodic(const Duration(seconds: 2), (_) {
-      if (!mounted || _inputIsGuitar || _looking) return;
+      if (!mounted || _looking) return;
       _ear.lookForGuitar();
     });
   }
@@ -110,207 +134,121 @@ class _PracticeScreenState extends State<PracticeScreen>
   void dispose() {
     _guitarWatch?.cancel();
     _ticker.dispose();
+    _songRun.dispose();
+    _laneRun.dispose();
+    _level.dispose();
     _reader.dispose();
     _ear.dispose();
     super.dispose();
   }
 
-  /// The song, the course step, or the lane being built.
-  TabSong get _active {
-    if (_chords) return _built;
-    return _song;
-  }
-
   void _onTick(Duration elapsed) {
-    final position = _resumeFrom + elapsed;
-    final end = Duration(milliseconds: _active.lengthMs + 800);
-    final at = position.inMilliseconds;
-    // Restart the ticker. Its elapsed time does not rewind on its own,
-    // and the lead-in stays so the first chord comes in with a warning.
-    if (_loop &&
-        _chords &&
-        _active.lengthMs > 0 &&
-        position >= Duration(milliseconds: _active.lengthMs)) {
-      _marks.clear();
-      _resumeFrom = Duration.zero;
-      _ticker.stop();
+    final step = elapsed - _lastTick;
+    _lastTick = elapsed;
+    _sinceFrame
+      ..reset()
+      ..start();
+    _run.advance(step);
+    _clickOnCountBeat();
+  }
+
+  /// The frame timer runs only while something is moving. A still
+  /// stage costs nothing, which matters on a laptop battery.
+  void _syncTicker() {
+    final wanted = _run.needsFrames;
+    if (wanted == _ticker.isActive) return;
+    if (wanted) {
+      _lastTick = Duration.zero;
       _ticker.start();
-      setState(() {
-        _position = Duration.zero;
-        _playing = true;
-        _mark = null;
-      });
+    } else {
+      _ticker.stop();
+    }
+  }
+
+  /// The delay the timing check found on the open input, if it has
+  /// been run there.
+  double? get _measuredDelayMs {
+    final route = _input?.route;
+    return route == null ? null : _store.inputDelayMs(route);
+  }
+
+  void _onPluck(int? midi, double agoMs) {
+    if (!mounted) return;
+    // Three delays, all in real milliseconds. The cable and Windows
+    // hold the sound for a while: measured by the timing check, or
+    // else guessed. The detector then took [agoMs] to name the note.
+    // Against those, the run's clock stopped at the last frame, so
+    // that much of the delay has not happened yet as far as the run
+    // knows.
+    final cableMs =
+        _measuredDelayMs ?? _input?.latencyMs.toDouble() ?? inputLatencyMs;
+    final sinceFrameMs = _sinceFrame.elapsedMicroseconds / 1000;
+    _run.pluck(midi, latencyMs: cableMs + agoMs - sinceFrameMs);
+  }
+
+  /// Ticks once on each beat of the count-in, higher on the first.
+  void _clickOnCountBeat() {
+    // Null whenever nothing is being counted, so a count that starts
+    // over clicks its first beat again.
+    final beat = _run.countIn?.beatAt(_run.positionMs).floor();
+    final counted = beat != null && beat >= 0 && beat < CountIn.beats;
+    if (counted && beat != _countBeat) _ear.click(accent: beat == 0);
+    _countBeat = beat;
+  }
+
+  Future<void> _checkTiming() async {
+    final route = _input?.route;
+    if (route == null) return;
+    _run.pause();
+    final delayMs = await showTimingCheck(context, _ear);
+    if (delayMs == null || !mounted) return;
+    setState(() => _store.setInputDelayMs(route, delayMs));
+  }
+
+  /// Starts a clip, or saves the one being recorded with the notes on
+  /// the stage as its answer.
+  Future<void> _toggleClip() async {
+    final clips = _clips!;
+    if (!clips.recording) {
+      setState(clips.start);
       return;
     }
-    if (position >= end) {
-      _ticker.stop();
-      expireUnplayed(_marks, _active.notes, at);
-      setState(() {
-        _position = end;
-        _playing = false;
-      });
-      return;
-    }
-    expireUnplayed(_marks, _active.notes, at);
-    setState(() => _position = position);
-  }
-
-  void _scrubStarted() {
-    _resumeAfterScrub = _playing;
-    if (_playing) _ticker.stop();
-  }
-
-  void _scrubTo(double milliseconds) {
-    final length = _active.lengthMs;
-    final next = milliseconds.round().clamp(0, length).toInt();
-    // Notes from here forward can be played again.
-    _marks.removeWhere((note, _) => note.timeMs >= next);
-    setState(() => _position = Duration(milliseconds: next));
-  }
-
-  void _scrubEnded(double milliseconds) {
-    _scrubTo(milliseconds);
-    if (!_resumeAfterScrub) return;
-    _resumeFrom = _position;
-    _ticker.start();
-    _resumeAfterScrub = false;
-  }
-
-  void _toggle() {
-    if (_playing) {
-      _ticker.stop();
-      setState(() => _playing = false);
-      return;
-    }
-    final end = Duration(milliseconds: _active.lengthMs);
-    if (_position >= end) {
-      _position = Duration.zero;
-      _marks.clear();
-    }
-    _resumeFrom = _position;
-    expireUnplayed(_marks, _active.notes, _position.inMilliseconds);
-    _ticker.start();
-    setState(() => _playing = true);
-  }
-
-  Future<void> _open() async {
-    if (_opening) return;
-    setState(() => _opening = true);
-    try {
-      final song = await openGuitarPro(context, _reader);
-      if (!mounted || song == null) return;
-      _ticker.stop();
-      setState(() {
-        _song = song;
-        _chords = false;
-        _position = Duration.zero;
-        _songPosition = Duration.zero;
-        _resumeFrom = Duration.zero;
-        _playing = false;
-        _marks.clear();
-        _mark = null;
-      });
-    } catch (error) {
-      if (!mounted) return;
-      final message = switch (error) {
-        FormatException(:final message) => message,
-        StateError(:final message) => message,
-        _ => 'Could not read that file.',
-      };
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(message)));
-    } finally {
-      if (mounted) setState(() => _opening = false);
-    }
-  }
-
-  void _enterChords() {
-    _ticker.stop();
-    setState(() {
-      if (!_chords) _songPosition = _position;
-      _chords = true;
-      _position = Duration.zero;
-      _resumeFrom = Duration.zero;
-      _playing = false;
-      _marks.clear();
-      _mark = null;
-    });
-  }
-
-  void _leaveChords() {
-    _ticker.stop();
-    setState(() {
-      _chords = false;
-      _position = _songPosition;
-      _resumeFrom = _songPosition;
-      _playing = false;
-      _marks.clear();
-      _mark = null;
-    });
-  }
-
-  void _acceptLane(LaneDrag drag, int index) {
-    setState(() {
-      final block = drag.block;
-      if (block != null) {
-        _lane.insert(index, LaneChord(block));
-      } else {
-        final from = drag.from;
-        if (from == null || from == index || from + 1 == index) return;
-        final placed = _lane.removeAt(from);
-        final at = index > from ? index - 1 : index;
-        _lane.insert(at, placed);
-      }
-      _built = songFromLane(_lane);
-      _marks.clear();
-    });
-  }
-
-  void _setLaneDuration(int index, int durationMs) {
-    setState(() {
-      _lane[index].durationMs = durationMs;
-      _built = songFromLane(_lane);
-      _marks.clear();
-    });
-  }
-
-  void _removeLane(int index) {
-    _ticker.stop();
-    setState(() {
-      _lane.removeAt(index);
-      _built = songFromLane(_lane);
-      _position = Duration.zero;
-      _resumeFrom = Duration.zero;
-      _playing = false;
-      _marks.clear();
-      _mark = null;
-    });
+    final song = _run.song;
+    final stamp = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+    final path = await clips.save(
+      name: '${song.instrument.name}-$stamp',
+      sampleRate: _ear.sampleRate,
+      notes: [
+        for (final moment in _run.timeline.moments)
+          // A chord has no one pitch to check, so it is a wildcard.
+          moment.notes.length == 1 ? pitchName(moment.notes.first.midi) : '?',
+      ],
+    );
+    if (!mounted) return;
+    setState(() {});
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Saved $path with the notes beside it.')),
+    );
   }
 
   void _onReady(HeardInput status) {
     if (!mounted) return;
     setState(() {
-      _inputName = status.name;
-      _inputs = status.inputs;
-      _irigSpeaker = status.irigSpeaker;
-      _inputIsGuitar = status.isGuitar;
-      _exclusive = status.exclusive;
-      _latencyMs = status.latencyMs;
-      _speakerReady = status.speakerReady;
+      _input = status;
       _speakerOn = status.isGuitar && status.speakerReady;
     });
   }
 
-  Future<void> _lookAgain() async {
+  /// Runs something that closes and reopens the input, and shows
+  /// "Looking…" while it does.
+  Future<void> _reopenInput(Future<void> Function() reopen) async {
     if (_looking) return;
     setState(() {
       _looking = true;
       _earFailed = false;
-      _heard = null;
-      _mark = null;
     });
     try {
-      await _ear.restart();
+      await reopen();
     } catch (_) {
       if (mounted) setState(() => _earFailed = true);
     } finally {
@@ -318,304 +256,371 @@ class _PracticeScreenState extends State<PracticeScreen>
     }
   }
 
-  void _onLevel(double level) {
-    if (!mounted) return;
-    setState(() => _level = level);
+  /// Puts [song] on the stage and leaves the chord book.
+  void _showSong(TabSong song) {
+    _laneRun.pause();
+    _songRun.load(song);
+    setState(() {
+      _chords = false;
+      _loopFromBar = 0;
+      _loopToBar = null;
+    });
+    _syncTicker();
+    _ear.instrument = song.instrument;
   }
 
-  void _onGuitar(int midi) {
-    if (!mounted) return;
-    // The buffer is late. Judge the moment the string was plucked.
-    final playedAt = _position.inMilliseconds - _latencyMs;
-    ScoreMark? mark;
-    if (_playing) {
-      final written = notesNear(_active.notes, playedAt);
-      mark = scoreMoment(
-        written: written,
-        playedAtMs: playedAt,
-        playedMidi: midi,
-      );
-      applyPlayedMark(_marks, written, mark);
+  Future<void> _open() async {
+    if (_opening) return;
+    setState(() => _opening = true);
+    try {
+      final song = await openGuitarPro(context, _reader);
+      if (mounted && song != null) _showSong(song);
+    } catch (error) {
+      if (!mounted) return;
+      final message = switch (error) {
+        FormatException(:final message) => message,
+        StateError(:final message) => message,
+        _ => 'Could not read that file.',
+      };
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(message)));
+    } finally {
+      if (mounted) setState(() => _opening = false);
     }
+  }
+
+  void _chooseInstrument(Instrument instrument) {
+    _store.instrument = instrument;
+    _showSong(warmUpFor(instrument));
+  }
+
+  /// Swaps between the song and the chord book. Whichever is left
+  /// behind is paused where it stands.
+  void _setChords(bool chords) {
+    _run.pause();
+    setState(() => _chords = chords);
+    _syncTicker();
+    _ear.instrument = _run.song.instrument;
+  }
+
+  void _toggleLoop() {
+    if (_canPlay) _run.loop = _run.loop == null ? _loopRange() : null;
+  }
+
+  void _setLoopBars(int fromBar, int toBar) {
     setState(() {
-      _heard = pitchName(midi);
-      _mark = mark;
+      _loopFromBar = fromBar;
+      _loopToBar = toBar;
     });
+    _run.loop = _loopRange();
+  }
+
+  /// The stretch that repeats. A song with bar lines loops whole bars,
+  /// so every pass stays in time. The chord lane has no bars and loops
+  /// from its start to its end.
+  LoopRange? _loopRange() {
+    final song = _run.song;
+    if (song.lengthMs <= 0) return null;
+    final bars = song.bars;
+    if (bars.isEmpty) return LoopRange(0, song.lengthMs);
+    return LoopRange(
+      bars[_loopFromBar].startMs,
+      bars[_loopToBar ?? bars.length - 1].endMs,
+    );
+  }
+
+  /// The lane changed, so its song is built again. [keepPlace] leaves
+  /// the playhead where it is, so a chord can be dropped mid-loop.
+  void _rebuildLane({required bool keepPlace}) {
+    final wasLooping = _laneRun.loop != null;
+    _laneRun.load(songFromLane(_lane), keepPlace: keepPlace);
+    // Loading clears the loop, and the lane's length has changed anyway.
+    if (wasLooping) _laneRun.loop = _loopRange();
+    setState(() {});
+  }
+
+  void _acceptLane(LaneDrag drag, int index) {
+    final block = drag.block;
+    if (block != null) {
+      _lane.insert(index, LaneChord(block));
+    } else {
+      final from = drag.from;
+      if (from == null || from == index || from + 1 == index) return;
+      final placed = _lane.removeAt(from);
+      _lane.insert(index > from ? index - 1 : index, placed);
+    }
+    _rebuildLane(keepPlace: true);
+  }
+
+  void _setLaneDuration(int index, int durationMs) {
+    _lane[index].durationMs = durationMs;
+    _rebuildLane(keepPlace: true);
+  }
+
+  void _removeLane(int index) {
+    _lane.removeAt(index);
+    _rebuildLane(keepPlace: false);
+  }
+
+  /// The keys that work anywhere on the screen. Wrapping the screen in
+  /// these also stops Space from "pressing" whichever button was
+  /// clicked last, which is what Space does by default.
+  Map<ShortcutActivator, VoidCallback> get _keys {
+    void play() {
+      if (_canPlay) _run.toggle();
+    }
+
+    void restart() {
+      if (_canPlay) _run.restart();
+    }
+
+    void slower() => _run.nudgeSpeed(-1);
+    void faster() => _run.nudgeSpeed(1);
+    return {
+      const SingleActivator(LogicalKeyboardKey.space): play,
+      const SingleActivator(LogicalKeyboardKey.keyR): restart,
+      const SingleActivator(LogicalKeyboardKey.keyL): _toggleLoop,
+      const SingleActivator(LogicalKeyboardKey.minus): slower,
+      const SingleActivator(LogicalKeyboardKey.numpadSubtract): slower,
+      // Plus is Shift and the equals key. Either way means faster.
+      const SingleActivator(LogicalKeyboardKey.equal): faster,
+      const SingleActivator(LogicalKeyboardKey.equal, shift: true): faster,
+      const SingleActivator(LogicalKeyboardKey.numpadAdd): faster,
+    };
   }
 
   @override
   Widget build(BuildContext context) {
-    final active = _active;
-    final clock = _clockLabel(_position);
-    final songClock = _clockLabel(Duration(milliseconds: active.lengthMs));
-    final onChords = _chords;
-    // The staff has a fixed height. Stretching it made the strings
-    // far apart, which is the opposite of a tab you can read.
-    final staff = SizedBox(
-      height: SidewaysTab.height,
-      child: DragTarget<LaneDrag>(
-        onAcceptWithDetails: (details) {
-          if (!_chords) return;
-          _acceptLane(details.data, _lane.length);
-        },
-        builder: (context, candidate, _) {
-          return DecoratedBox(
-            key: const Key('staff'),
-            decoration: BoxDecoration(
-              color: _neck.wood,
-              borderRadius: const BorderRadius.all(Radius.circular(12)),
-              border: _chords && candidate.isNotEmpty
-                  ? Border.all(color: const Color(0xFFE4B15A), width: 2)
-                  : null,
-            ),
-            child: SidewaysTab(
-              song: active,
-              position: _position,
-              neck: _neck,
-              marks: Map<TabNote, ScoreMark>.of(_marks),
-            ),
-          );
-        },
-      ),
-    );
-    final positionSlider = Slider(
-      key: const Key('position'),
-      value: _position.inMilliseconds.clamp(0, active.lengthMs).toDouble(),
-      max: active.lengthMs <= 0 ? 1 : active.lengthMs.toDouble(),
-      activeColor: const Color(0xFFE4B15A),
-      inactiveColor: const Color(0xFF3A342C),
-      onChangeStart: (_) => _scrubStarted(),
-      onChanged: _opening ? null : _scrubTo,
-      onChangeEnd: _scrubEnded,
-    );
-
+    final run = _run;
+    final song = run.song;
+    final bars = song.bars;
     return Scaffold(
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(28, 24, 28, 20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Riffster',
-              style: TextStyle(fontSize: 14, letterSpacing: 0.4),
-            ),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                Flexible(
-                  child: Text(
-                    active.title,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 28,
-                      fontWeight: FontWeight.w600,
-                    ),
+      body: Room(
+        child: CallbackShortcuts(
+          bindings: _keys,
+          child: Focus(
+            autofocus: true,
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(28, 16, 28, 14),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _TopBar(
+                    instrument: _songRun.song.instrument,
+                    onInstrument: _chooseInstrument,
+                    opening: _opening,
+                    onOpen: _open,
+                    chords: _chords,
+                    onChords: _setChords,
                   ),
-                ),
-                const SizedBox(width: 16),
-                Text(
-                  '${active.tempoBpm} bpm',
-                  style: const TextStyle(color: Color(0xFF8A8175)),
-                ),
-                const Spacer(),
-                Text(
-                  '$clock / $songClock',
-                  style: const TextStyle(color: Color(0xFF8A8175)),
-                ),
-              ],
-            ),
-            const SizedBox(height: 10),
-            Row(
-              children: [
-                OutlinedButton(
-                  onPressed: _opening ? null : _open,
-                  child: Text(_opening ? 'Opening…' : 'Open'),
-                ),
-                const SizedBox(width: 8),
-                onChords
-                    ? FilledButton(
-                        onPressed: _enterChords,
-                        child: const Text('Chords'),
-                      )
-                    : OutlinedButton(
-                        onPressed: _opening ? null : _enterChords,
-                        child: const Text('Chords'),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(child: _SongHeading(song: song)),
+                      const SizedBox(width: 20),
+                      FeedbackStrip(run: run),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  if (_chords) ..._chordBook(),
+                  _stage(run),
+                  const SizedBox(height: 16),
+                  TransportDock(
+                    run: run,
+                    enabled: _canPlay,
+                    loopFromBar: _loopFromBar,
+                    loopToBar: _loopToBar ?? bars.length - 1,
+                    onLoop: _toggleLoop,
+                    onLoopBars: _setLoopBars,
+                  ),
+                  const SizedBox(height: 10),
+                  InputBar(
+                    input: _input,
+                    failed: _earFailed,
+                    looking: _looking,
+                    level: _level,
+                    volume: _volume,
+                    speakerOn: _speakerOn,
+                    onSource: (source) {
+                      _reopenInput(() => _ear.choose(source));
+                    },
+                    onLookAgain: () => _reopenInput(_ear.restart),
+                    onVolume: (volume) {
+                      setState(() => _volume = volume);
+                      _ear.volume = volume;
+                    },
+                    onSpeaker: (on) {
+                      setState(() => _speakerOn = on);
+                      _ear.speakerOn = on;
+                    },
+                    measuredDelayMs: _measuredDelayMs,
+                    onTimingCheck: _checkTiming,
+                    clipRecording: _clips?.recording ?? false,
+                    onClip: _clips == null ? null : _toggleClip,
+                  ),
+                  const SizedBox(height: 6),
+                  Row(
+                    children: [
+                      const _FingerLegend(),
+                      const Spacer(),
+                      _NeckPicker(
+                        selected: _store.neck,
+                        onSelected: (neck) {
+                          setState(() => _store.neck = neck);
+                        },
                       ),
-                if (onChords) ...[
-                  const SizedBox(width: 8),
-                  OutlinedButton(
-                    onPressed: _leaveChords,
-                    child: const Text('Song'),
+                    ],
                   ),
-                  const SizedBox(width: 8),
-                  _loop
-                      ? FilledButton(
-                          onPressed: () => setState(() => _loop = false),
-                          child: const Text('Looping'),
-                        )
-                      : OutlinedButton(
-                          onPressed: () => setState(() => _loop = true),
-                          child: const Text('Loop'),
-                        ),
                 ],
-                const SizedBox(width: 8),
-                FilledButton(
-                  onPressed: _opening || (onChords && _lane.isEmpty)
-                      ? null
-                      : _toggle,
-                  child: Text(_playing ? 'Pause' : 'Play'),
-                ),
-              ],
+              ),
             ),
-            if (!onChords) ...[
-              const SizedBox(height: 14),
-              const _FingerLegend(),
-              const SizedBox(height: 8),
-            ],
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    _listenLabel,
-                    style: TextStyle(color: _listenColor),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                TextButton(
-                  onPressed: _looking || (_inputName == null && !_earFailed)
-                      ? null
-                      : _lookAgain,
-                  child: Text(_looking ? 'Looking…' : 'Look again'),
-                ),
-                _LevelMeter(level: _level),
-                const SizedBox(width: 8),
-                SizedBox(
-                  width: 120,
-                  child: SliderTheme(
-                    data: SliderTheme.of(context).copyWith(
-                      trackHeight: 3,
-                      thumbShape: const RoundSliderThumbShape(
-                        enabledThumbRadius: 6,
-                      ),
-                      overlayShape: const RoundSliderOverlayShape(
-                        overlayRadius: 12,
-                      ),
-                    ),
-                    child: Slider(
-                      key: const Key('volume'),
-                      value: _volume,
-                      activeColor: const Color(0xFFE4B15A),
-                      inactiveColor: const Color(0xFF3A342C),
-                      onChanged: _speakerReady && _inputIsGuitar
-                          ? (value) {
-                              setState(() => _volume = value);
-                              _ear.volume = value;
-                            }
-                          : null,
-                    ),
-                  ),
-                ),
-                TextButton(
-                  onPressed: _speakerReady && _inputIsGuitar
-                      ? () {
-                          setState(() => _speakerOn = !_speakerOn);
-                          _ear.speakerOn = _speakerOn;
-                        }
-                      : null,
-                  child: Text(
-                    _speakerOn && _speakerReady ? 'Speaker on' : 'Speaker off',
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            if (onChords) ...[
-              const SizedBox(height: 8),
-              ChordPicker(
-                group: _group,
-                section: _section,
-                onGroup: (group) => setState(() {
-                  _group = group;
-                  _section = '';
-                }),
-                onSection: (section) => setState(() => _section = section),
-              ),
-              const SizedBox(height: 8),
-              const Text(
-                'X muted · O open · 1 index, 2 middle, 3 ring, 4 pinky',
-                style: TextStyle(color: Color(0xFF8A8175), fontSize: 12),
-              ),
-              const SizedBox(height: 8),
-              ChordPalette(
-                blocks: blocksIn(_group, activeSection(_group, _section)),
-              ),
-              const SizedBox(height: 10),
-              ChordLaneBar(
-                lane: _lane,
-                onDrop: _acceptLane,
-                onDuration: _setLaneDuration,
-                onRemove: _removeLane,
-              ),
-              const SizedBox(height: 8),
-              staff,
-              const SizedBox(height: 8),
-              positionSlider,
-            ] else ...[
-              _NeckPicker(
-                selected: _neck,
-                onSelected: (neck) => setState(() => _neck = neck),
-              ),
-              const SizedBox(height: 8),
-              staff,
-              const SizedBox(height: 8),
-              positionSlider,
-            ],
-          ],
+          ),
         ),
       ),
     );
   }
 
-  String get _listenLabel {
-    if (_earFailed) {
-      return 'No guitar input. Plug in the Rocksmith cable, then press Look again.';
-    }
-    final where = _inputName == null
-        ? 'Listening'
-        : (_inputIsGuitar
-              ? (_exclusive ? '$_inputName · exclusive' : _inputName!)
-              : _irigSpeaker != null
-              ? '$_irigSpeaker is connected. Windows did not start the guitar input. Plug in the Rocksmith cable, then press Look again.'
-              : 'Plug in the Rocksmith cable. It can be plugged in after the app is open. Hearing $_inputName until then. Inputs: ${_inputs.isEmpty ? 'none' : _inputs.join(', ')}');
-    if (_heard == null) return where;
-    if (_mark == null) return '$where · $_heard';
-    return '$where · $_heard · ${_markLabel(_mark!)}';
+  List<Widget> _chordBook() {
+    return [
+      ChordPicker(
+        group: _group,
+        section: _section,
+        onGroup: (group) => setState(() {
+          _group = group;
+          _section = '';
+        }),
+        onSection: (section) => setState(() => _section = section),
+      ),
+      const SizedBox(height: 8),
+      const Text(
+        'X muted · O open · 1 index, 2 middle, 3 ring, 4 pinky',
+        style: RiffText.label,
+      ),
+      const SizedBox(height: 8),
+      ChordPalette(blocks: blocksIn(_group, activeSection(_group, _section))),
+      const SizedBox(height: 10),
+      ChordLaneBar(
+        lane: _lane,
+        onDrop: _acceptLane,
+        onDuration: _setLaneDuration,
+        onRemove: _removeLane,
+      ),
+      const SizedBox(height: 14),
+    ];
   }
 
-  Color get _listenColor {
-    return switch (_mark) {
-      ScoreMark.hit => const Color(0xFF3DDC6E),
-      ScoreMark.early || ScoreMark.late => const Color(0xFFE4B15A),
-      ScoreMark.miss => const Color(0xFFE85D75),
-      null => const Color(0xFF8A8175),
-    };
+  /// The stage, with the end-of-run card over its right side. The card
+  /// stays off the left, where the last notes you played still show.
+  Widget _stage(PracticeRun run) {
+    return Stack(
+      children: [
+        DragTarget<LaneDrag>(
+          onAcceptWithDetails: (details) {
+            if (_chords) _acceptLane(details.data, _lane.length);
+          },
+          builder: (context, candidate, _) => StageView(
+            key: const Key('staff'),
+            run: run,
+            neck: _store.neck,
+            dropHighlighted: _chords && candidate.isNotEmpty,
+          ),
+        ),
+        Positioned(
+          top: 0,
+          bottom: 0,
+          right: 28,
+          child: Center(child: RunSummaryCard(run: run)),
+        ),
+      ],
+    );
   }
 }
 
-String _markLabel(ScoreMark mark) {
-  return switch (mark) {
-    ScoreMark.hit => 'Hit',
-    ScoreMark.miss => 'Miss',
-    ScoreMark.early => 'Early',
-    ScoreMark.late => 'Late',
-  };
+/// The wordmark, the instrument, and the buttons that change what is
+/// on the stage.
+class _TopBar extends StatelessWidget {
+  const _TopBar({
+    required this.instrument,
+    required this.onInstrument,
+    required this.opening,
+    required this.onOpen,
+    required this.chords,
+    required this.onChords,
+  });
+
+  final Instrument instrument;
+  final ValueChanged<Instrument> onInstrument;
+  final bool opening;
+  final VoidCallback onOpen;
+  final bool chords;
+  final ValueChanged<bool> onChords;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        const Text('Riffster', style: RiffText.wordmark),
+        const SizedBox(width: 22),
+        InstrumentSwitch(selected: instrument, onSelected: onInstrument),
+        const Spacer(),
+        OutlinedButton(
+          onPressed: opening ? null : onOpen,
+          child: Text(opening ? 'Opening…' : 'Open'),
+        ),
+        // The chord book is guitar shapes. A bass gets its own way to
+        // build a line in a later stage.
+        if (instrument == Instrument.guitar) ...[
+          const SizedBox(width: 8),
+          chords
+              ? FilledButton(
+                  onPressed: () => onChords(true),
+                  child: const Text('Chords'),
+                )
+              : OutlinedButton(
+                  onPressed: opening ? null : () => onChords(true),
+                  child: const Text('Chords'),
+                ),
+        ],
+        if (chords) ...[
+          const SizedBox(width: 8),
+          OutlinedButton(
+            onPressed: () => onChords(false),
+            child: const Text('Song'),
+          ),
+        ],
+      ],
+    );
+  }
 }
 
-String _clockLabel(Duration position) {
-  final seconds = position.inSeconds.remainder(60).toString().padLeft(2, '0');
-  return '${position.inMinutes}:$seconds';
+class _SongHeading extends StatelessWidget {
+  const _SongHeading({required this.song});
+
+  final TabSong song;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          song.title,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: RiffText.title,
+        ),
+        const SizedBox(height: 4),
+        Text(
+          '${song.tempoBpm} bpm · ${song.instrument.label}',
+          style: RiffText.label,
+        ),
+      ],
+    );
+  }
 }
 
+/// The three woods. Each chip shows a dot of its own board.
 class _NeckPicker extends StatelessWidget {
   const _NeckPicker({required this.selected, required this.onSelected});
 
@@ -626,60 +631,38 @@ class _NeckPicker extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        for (final neck in neckThemes) ...[
-          neck == selected
-              ? FilledButton(
-                  onPressed: () => onSelected(neck),
-                  child: Text(neck.name),
-                )
-              : OutlinedButton(
-                  onPressed: () => onSelected(neck),
-                  child: Text(neck.name),
+        for (final neck in neckThemes)
+          Padding(
+            padding: const EdgeInsets.only(left: 6),
+            child: TextButton.icon(
+              onPressed: () => onSelected(neck),
+              style: TextButton.styleFrom(
+                foregroundColor: neck == selected
+                    ? RiffColors.cream
+                    : RiffColors.quiet,
+                backgroundColor: neck == selected ? RiffColors.panelLit : null,
+                side: BorderSide(
+                  color: neck == selected
+                      ? RiffColors.gold
+                      : const Color(0x00000000),
                 ),
-          const SizedBox(width: 8),
-        ],
-      ],
-    );
-  }
-}
-
-/// A short bar that jumps when the guitar sends a signal.
-///
-/// A real pluck is often only a fifth of full scale, so the bar treats
-/// 0.2 as full. Quiet noise stays a sliver. A dead bar means this input
-/// is not hearing the strings.
-class _LevelMeter extends StatelessWidget {
-  const _LevelMeter({required this.level});
-
-  final double level;
-
-  @override
-  Widget build(BuildContext context) {
-    final filled = (level / 0.2).clamp(0.0, 1.0);
-    return SizedBox(
-      width: 96,
-      height: 8,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: const Color(0xFF3A342C),
-          borderRadius: BorderRadius.circular(4),
-        ),
-        child: Align(
-          alignment: Alignment.centerLeft,
-          child: FractionallySizedBox(
-            widthFactor: filled,
-            heightFactor: 1,
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                color: filled > 0.85
-                    ? const Color(0xFFE85D75)
-                    : const Color(0xFF3DDC6E),
-                borderRadius: BorderRadius.circular(4),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
               ),
+              icon: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: neck.wood,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: RiffColors.lineStrong),
+                ),
+                child: const SizedBox.square(dimension: 14),
+              ),
+              label: Text(neck.name),
             ),
           ),
-        ),
-      ),
+      ],
     );
   }
 }
@@ -692,19 +675,15 @@ class _FingerLegend extends StatelessWidget {
     return Row(
       children: [
         for (final finger in FrettingFinger.values) ...[
-          Container(
-            width: 14,
-            height: 14,
+          DecoratedBox(
             decoration: BoxDecoration(
               color: fingerColor[finger],
               shape: BoxShape.circle,
             ),
+            child: const SizedBox.square(dimension: 12),
           ),
           const SizedBox(width: 6),
-          Text(
-            fingerLabel[finger]!,
-            style: const TextStyle(color: Color(0xFF8A8175), fontSize: 13),
-          ),
+          Text(fingerLabel[finger]!, style: RiffText.label),
           const SizedBox(width: 16),
         ],
       ],

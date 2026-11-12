@@ -67,29 +67,33 @@ void main() {
   });
 
   test('a hit stays, and a miss can still be saved', () {
-    final note = _note(midi: 64);
-    final marks = <TabNote, ScoreMark>{};
-
-    applyPlayedMark(marks, [note], ScoreMark.miss);
-    applyPlayedMark(marks, [note], ScoreMark.hit);
-
-    expect(marks[note], ScoreMark.hit);
-
-    applyPlayedMark(marks, [note], ScoreMark.miss);
-    expect(marks[note], ScoreMark.hit);
+    expect(keepBetterMark(null, ScoreMark.miss), ScoreMark.miss);
+    expect(keepBetterMark(ScoreMark.miss, ScoreMark.hit), ScoreMark.hit);
+    expect(keepBetterMark(ScoreMark.hit, ScoreMark.miss), ScoreMark.hit);
+    expect(keepBetterMark(ScoreMark.early, ScoreMark.hit), ScoreMark.early);
   });
 
-  test('a note that scrolls past its window with no pluck is a miss', () {
-    final waiting = _note(midi: 64, timeMs: 1000);
-    final gone = _note(midi: 59, timeMs: 0);
-    final marks = <TabNote, ScoreMark>{};
+  test('a note is out of reach once the playhead is 250 ms past it', () {
+    expect(windowHasPassed(dueAtMs: 0, positionMs: 250), isFalse);
+    expect(windowHasPassed(dueAtMs: 0, positionMs: 251), isTrue);
+    expect(windowHasPassed(dueAtMs: 1000, positionMs: 251), isFalse);
+  });
 
-    expireUnplayed(marks, [waiting, gone], 250);
-    expect(marks.containsKey(waiting), isFalse);
-    expect(marks.containsKey(gone), isFalse);
+  test('half speed is judged in real time, not in song time', () {
+    final written = [_note(midi: 64)];
 
-    expireUnplayed(marks, [waiting, gone], 251);
-    expect(marks[gone], ScoreMark.miss);
-    expect(marks.containsKey(waiting), isFalse);
+    // 60 ms of song time at half speed is 120 real milliseconds early.
+    expect(
+      scoreMoment(
+        written: written,
+        playedAtMs: 1000 - 60,
+        playedMidi: 64,
+        speed: 0.5,
+      ),
+      ScoreMark.early,
+    );
+    // 130 ms of song time is 260 real milliseconds: a different beat.
+    expect(windowHasPassed(dueAtMs: 0, positionMs: 125, speed: 0.5), isFalse);
+    expect(windowHasPassed(dueAtMs: 0, positionMs: 130, speed: 0.5), isTrue);
   });
 }

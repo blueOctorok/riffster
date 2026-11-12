@@ -2,10 +2,11 @@ import 'package:flutter/material.dart';
 
 import '../music/chord_book.dart';
 import '../music/chord_chart.dart';
+import '../theme/riffster_theme.dart';
 import 'finger_colors.dart';
 
-const _ink = Color(0xFF2A241C);
-const _quiet = Color(0xFF6E675E);
+const _ink = RiffColors.cardInk;
+const _quiet = RiffColors.cardQuiet;
 
 /// A beginner chord card. Low E is the left string. The number in a
 /// dot is the finger, in the same colors as the staff.
@@ -192,7 +193,14 @@ class _ChartPainter extends CustomPainter {
     final painter = TextPainter(
       text: TextSpan(
         text: text,
-        style: TextStyle(color: color, fontSize: size, fontWeight: weight),
+        // Text drawn straight onto a canvas does not pick up the app's
+        // theme, so the typeface is named here.
+        style: TextStyle(
+          color: color,
+          fontSize: size,
+          fontWeight: weight,
+          fontFamily: RiffFonts.text,
+        ),
       ),
       textDirection: TextDirection.ltr,
     )..layout();

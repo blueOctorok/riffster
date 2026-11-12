@@ -1,8 +1,8 @@
 # Riffster
 
-A sideways guitar tab. You bring a song you already have, and the app scrolls it so you can play along.
+A practice app for bass and guitar. A tab scrolls sideways along a fretboard into a playhead, and the app listens through a cable and marks each note on time, early, late, or missed.
 
-This first slice scrolls a short built-in phrase. Guitar Pro import and iRig scoring are next.
+It opens on a short warm-up. You can also open a Guitar Pro file you already have, or build a chord progression on the guitar side. The plan and what is built so far are in `docs/PROJECT_ROADMAP.md` and `docs/TODOS.md`.
 
 ## Run the Windows app
 

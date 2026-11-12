@@ -30,6 +30,8 @@ function riffsterReadScore(score) {
     if (notes.length === 0) continue;
     tracks.push({
       name: track.name || "Guitar",
+      // Four strings is a bass. The stage draws that many lines.
+      strings: stringCountOf(track.staves[0]),
       notes,
     });
   }
@@ -37,8 +39,23 @@ function riffsterReadScore(score) {
   return {
     title: score.title || "",
     tempoBpm,
+    bars: barsOf(score),
     tracks,
   };
+}
+
+function stringCountOf(staff) {
+  return staff && staff.tuning && staff.tuning.length ? staff.tuning.length : 6;
+}
+
+// Where each bar starts and ends in milliseconds, and how many beats it
+// holds. The stage draws its bar lines from this, and a loop snaps to it.
+function barsOf(score) {
+  return score.masterBars.map((bar) => ({
+    startMs: millisUntil(score, bar.start),
+    endMs: millisUntil(score, bar.start + barSpanTicks(bar)),
+    beats: bar.timeSignatureNumerator || 4,
+  }));
 }
 
 function notesForTrack(score, track) {
@@ -47,7 +64,7 @@ function notesForTrack(score, track) {
 
   // alphaTab numbers 1 as the lowest string. The staff numbers 1 as the
   // top line, which is the highest string. A 6-string guitar flips 1 <-> 6.
-  const stringCount = staff.tuning && staff.tuning.length ? staff.tuning.length : 6;
+  const stringCount = stringCountOf(staff);
   const pending = [];
 
   for (const bar of staff.bars) {

@@ -1,4 +1,5 @@
 import '../models/fretting_finger.dart';
+import '../models/instrument.dart';
 import '../models/tab_note.dart';
 
 /// How far ahead of the playhead a practice chord is drawn, so the line
@@ -7,9 +8,6 @@ const chordLeadMs = 500;
 
 /// How long a practice chord rings before the next one, until you drag it.
 const chordHoldMs = 2000;
-
-/// Open-string MIDI numbers, staff string 1 (high e) through string 6.
-const openStringMidi = [64, 59, 55, 50, 45, 40];
 
 /// One grip a player can hold, and the name that grip goes by.
 ///
@@ -188,7 +186,9 @@ List<TabNote> notesForGrip(ChordGrip grip, int timeMs, int durationMs) {
           string: string,
           fret: grip.frets[string - 1]!,
           durationMs: durationMs,
-          midi: openStringMidi[string - 1] + grip.frets[string - 1]!,
+          midi:
+              Instrument.guitar.openStringMidi[string - 1] +
+              grip.frets[string - 1]!,
           finger: grip.frets[string - 1] == 0 ? null : grip.fingerOn(string),
         ),
   ];

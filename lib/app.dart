@@ -1,26 +1,46 @@
 import 'package:flutter/material.dart';
 
+import 'data/settings_store.dart';
+import 'screens/instrument_chooser.dart';
 import 'screens/practice_screen.dart';
+import 'theme/riffster_theme.dart';
 
-class RiffsterApp extends StatelessWidget {
-  const RiffsterApp({super.key});
+class RiffsterApp extends StatefulWidget {
+  const RiffsterApp({super.key, required this.store});
+
+  final SettingsStore store;
 
   @override
+  State<RiffsterApp> createState() => _RiffsterAppState();
+}
+
+class _RiffsterAppState extends State<RiffsterApp> {
+  @override
   Widget build(BuildContext context) {
+    final store = widget.store;
     return MaterialApp(
       title: 'Riffster',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        brightness: Brightness.dark,
-        scaffoldBackgroundColor: const Color(0xFF1A1814),
-        colorScheme: const ColorScheme.dark(
-          surface: Color(0xFF1A1814),
-          primary: Color(0xFFE4B15A),
-          onPrimary: Color(0xFF1A1814),
-          onSurface: Color(0xFFF3EEE6),
+      theme: riffsterTheme(),
+      // The very first launch asks which instrument. After that the
+      // answer is on disk and the app opens straight onto the stage.
+      // A cross-fade shows a little of whatever is behind the two
+      // screens while both are half see-through. With nothing there,
+      // that is black, and the fade dips dark in the middle. The room
+      // color behind them makes the dip invisible.
+      home: ColoredBox(
+        color: RiffColors.room,
+        child: AnimatedSwitcher(
+          duration: RiffMotion.slide,
+          child: store.instrument == null
+              ? InstrumentChooser(
+                  onChosen: (instrument) {
+                    setState(() => store.instrument = instrument);
+                  },
+                )
+              : PracticeScreen(store: store),
         ),
       ),
-      home: const PracticeScreen(),
     );
   }
 }

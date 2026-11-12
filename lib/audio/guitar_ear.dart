@@ -6,8 +6,11 @@ import 'dart:typed_data';
 import 'package:flutter_soloud/flutter_soloud.dart';
 import 'package:record/record.dart';
 
+import '../models/instrument.dart';
 import 'exclusive_guitar.dart';
-import 'pitch.dart';
+import 'pluck_detector.dart';
+import 'sample_clock.dart';
+import 'wav.dart';
 
 /// How long after the pluck the buffer reaches Dart.
 ///
@@ -22,6 +25,37 @@ const _speakerBufferFrames = 256;
 /// hides gaps. A shorter wait stays closer to the string.
 const _speakerPrefillSeconds = 0.005;
 
+/// Which input the switches are choosing. Only one is open at a time.
+enum EarSource { cable, irig, mic }
+
+/// The input to open, or null when every switch is off.
+///
+/// A preferred source wins when that device is plugged in. With no
+/// preference, the Rocksmith cable wins, then an iRig. The room mic is
+/// never chosen on its own. It has to be asked for, because a guitar
+/// plug-in is supposed to take the seat.
+EarSource? listeningChoice({
+  required bool cable,
+  required bool irig,
+  required bool mic,
+  required Set<EarSource> suppressed,
+  EarSource? preferred,
+}) {
+  bool open(EarSource source) {
+    final present = switch (source) {
+      EarSource.cable => cable,
+      EarSource.irig => irig,
+      EarSource.mic => mic,
+    };
+    return present && !suppressed.contains(source);
+  }
+
+  if (preferred != null) return open(preferred) ? preferred : null;
+  if (open(EarSource.cable)) return EarSource.cable;
+  if (open(EarSource.irig)) return EarSource.irig;
+  return null;
+}
+
 /// What the practice screen shows once the input and the speaker are open.
 class HeardInput {
   const HeardInput({
@@ -29,6 +63,10 @@ class HeardInput {
     required this.isGuitar,
     required this.speakerReady,
     required this.inputs,
+    required this.cablePresent,
+    required this.irigPresent,
+    required this.micPresent,
+    this.active,
     this.irigSpeaker,
     this.exclusive = false,
     this.latencyMs = inputLatencyMs,
@@ -40,6 +78,12 @@ class HeardInput {
   final bool isGuitar;
   final bool speakerReady;
 
+  /// The switch that is on. Null when the listener is quiet.
+  final EarSource? active;
+  final bool cablePresent;
+  final bool irigPresent;
+  final bool micPresent;
+
   /// Every input Windows offered. Empty when a guitar cable is in use.
   final List<String> inputs;
 
@@ -49,8 +93,18 @@ class HeardInput {
   /// True when the cable is open in exclusive mode.
   final bool exclusive;
 
-  /// How far behind the string this path is, in milliseconds. A guess.
+  /// How far behind the string this path is, in milliseconds. A guess,
+  /// used until the timing check has measured it.
   final int latencyMs;
+
+  /// A name for the route the sound takes: which device, and which of
+  /// the ways Windows opened it. Each route has its own delay, so a
+  /// measured delay is saved under this name. Null when nothing is
+  /// open.
+  ///
+  /// The guess is part of the name because every way of opening an
+  /// input has a different guess, and nothing else tells them apart.
+  String? get route => active == null ? null : '$name · $latencyMs';
 }
 
 /// Listens to a guitar cable and plays that signal out the speakers.
@@ -61,8 +115,17 @@ class HeardInput {
 /// The Rocksmith cable has no headphone jack, so its guitar comes out the
 /// PC speakers. An iRig still prefers its own speaker jack.
 class GuitarEar {
-  /// Called when a new pluck has a pitch. Set before [start].
-  void Function(int midi)? onPitch;
+  /// Called for each note the player starts. Set before [start].
+  ///
+  /// [midi] is null for a sound with no single pitch, such as a strum.
+  /// [agoMs] is how long before this call the note reached the app. A
+  /// low note takes longer to name than a high one, and the score must
+  /// not depend on that.
+  void Function(int? midi, double agoMs)? onPluck;
+
+  /// Every chunk of raw sound, as 16-bit samples. Only the debug clip
+  /// recorder listens.
+  void Function(Uint8List bytes)? onSound;
 
   /// Loudness of the latest chunk, from 0 to about 1. Drives the level meter.
   void Function(double level)? onLevel;
@@ -72,9 +135,13 @@ class GuitarEar {
 
   final _recorder = AudioRecorder();
   StreamSubscription<Uint8List>? _subscription;
-  final _window = <double>[];
-  var _holding = false;
+  var _instrument = Instrument.bass;
   var _sampleRate = 44100;
+  late var _detector = _newDetector();
+  late var _clock = SampleClock(_sampleRate);
+
+  /// The app's clock. Chunks are stamped with it as they arrive.
+  final _watch = Stopwatch()..start();
   var _started = false;
   var _closed = false;
   var _opening = false;
@@ -88,9 +155,44 @@ class GuitarEar {
   var _monitorReady = false;
   var _exclusive = false;
   var _latencyMs = inputLatencyMs;
+
+  /// The room mic starts suppressed. A guitar input is chosen on its own.
+  /// Turning a switch off adds that source here so the next look does not
+  /// turn it straight back on.
+  final _suppressed = <EarSource>{EarSource.mic};
+  EarSource? _preferred;
+  EarSource? _openSource;
+  var _sawCable = false;
+  var _sawIrig = false;
+  var _cablePresent = false;
+  var _irigPresent = false;
+  var _micPresent = false;
   StreamSubscription<Uint8List>? _exclusivePcm;
   AudioSource? _monitor;
   SoundHandle? _monitorHandle;
+
+  /// The count-in click and its higher beat-one version, for the path
+  /// where Windows mixes the speakers. The exclusive path makes its own.
+  AudioSource? _click;
+  AudioSource? _accentClick;
+
+  /// Which instrument to listen for. A bass is heard an octave lower
+  /// than a guitar, so the detector is rebuilt for its range.
+  set instrument(Instrument value) {
+    if (value == _instrument) return;
+    _instrument = value;
+    _listenAfresh();
+  }
+
+  PluckDetector _newDetector() {
+    return PluckDetector(sampleRate: _sampleRate, instrument: _instrument);
+  }
+
+  /// Starts counting samples from zero, for a new input or instrument.
+  void _listenAfresh() {
+    _detector = _newDetector();
+    _clock = SampleClock(_sampleRate);
+  }
 
   /// The speaker follows the guitar while this is true.
   bool get speakerOn => _speakerOn;
@@ -109,6 +211,26 @@ class GuitarEar {
 
   /// How far behind the string the open path is. Scoring subtracts this.
   int get latencyMs => _latencyMs;
+
+  /// Samples a second on the open input.
+  int get sampleRate => _sampleRate;
+
+  /// True when a click can be heard: a guitar cable is open. With the
+  /// room mic there is no click, because the mic would hear it.
+  bool get canClick => _guitarInputOpen && _monitorReady;
+
+  /// A short tick out of the speakers, for the count-in. [accent] is
+  /// the higher one on beat one.
+  void click({bool accent = false}) {
+    if (!canClick) return;
+    if (_exclusive) {
+      unawaited(ExclusiveGuitar.click(accent: accent));
+      return;
+    }
+    final source = accent ? _accentClick : _click;
+    if (source == null || !SoLoud.instance.isInitialized) return;
+    SoLoud.instance.play(source);
+  }
 
   set speakerOn(bool value) {
     // A room mic must not be able to turn the loop on.
@@ -144,17 +266,42 @@ class GuitarEar {
     SoLoud.instance.setVolume(handle, _speakerOn ? _volume : 0);
   }
 
-  /// Asks Windows again, and switches over if the guitar cable is there now.
-  ///
-  /// Starting the app and then plugging the cable in does not update the
-  /// open stream. This only restarts when a guitar input has appeared.
+  /// Asks Windows again. A cable plugged in after launch takes the seat
+  /// from the room mic. A switch the player turned off stays off.
   Future<void> lookForGuitar() async {
-    if (_closed || _opening || _guitarInputOpen) return;
+    if (_closed || _opening) return;
     try {
       final devices = await _recorder.listInputDevices();
-      if (_closed || _guitarInputOpen || guitarInput(devices) == null) return;
+      if (_closed || _opening) return;
+      _notePresence(devices);
+      final next = listeningChoice(
+        cable: _cablePresent,
+        irig: _irigPresent,
+        mic: _micPresent,
+        suppressed: _suppressed,
+        preferred: _preferred,
+      );
+      if (next == _openSource && _started) return;
       await restart();
     } catch (_) {}
+  }
+
+  /// Turns one source on, or off when it is already the open one.
+  ///
+  /// The other two go off. One recording device is open, so the cable
+  /// and the iRig and the mic are never heard together.
+  Future<void> choose(EarSource source) async {
+    if (_closed || _opening) return;
+    if (_openSource == source) {
+      _preferred = null;
+      _suppressed.addAll(EarSource.values);
+    } else {
+      _preferred = source;
+      _suppressed
+        ..clear()
+        ..addAll(EarSource.values.where((item) => item != source));
+    }
+    await restart();
   }
 
   /// Closes the current input and asks Windows again.
@@ -163,12 +310,7 @@ class GuitarEar {
   Future<void> restart() async {
     if (_closed || _opening) return;
     await stop();
-    _monitorReady = false;
-    _monitorHandle = null;
-    _monitor = null;
-    if (SoLoud.instance.isInitialized) {
-      SoLoud.instance.deinit();
-    }
+    _closeSpeaker();
     await start();
   }
 
@@ -190,19 +332,43 @@ class GuitarEar {
 
     final devices = await _recorder.listInputDevices();
     if (_closed) return;
-    final device = guitarInput(devices);
+    _notePresence(devices);
+    final source = listeningChoice(
+      cable: _cablePresent,
+      irig: _irigPresent,
+      mic: _micPresent,
+      suppressed: _suppressed,
+      preferred: _preferred,
+    );
+    _openSource = source;
+    final device = source == null ? null : deviceFor(devices, source);
     _sampleRate = _sampleRateFor(device);
-    final inputName = device?.label ?? 'the PC mic';
-    _guitarInputOpen = device != null;
+    _listenAfresh();
+    final inputName = device?.label ?? 'Off';
+    _guitarInputOpen = source == EarSource.cable || source == EarSource.irig;
+    // The room mic is scored and never played. Opening it must not arm
+    // the speaker, or the laptop hears itself and the loop howls.
     _speakerOn = _guitarInputOpen;
     _latencyMs = inputLatencyMs;
+    if (source == null || device == null) {
+      _started = true;
+      _report(name: inputName, devices: devices);
+      return;
+    }
     // Exclusive mode copies the cable buffer to the speakers on an audio
     // thread. The bytes never visit Dart on the way to the speaker, which
     // is the delay that was left. Pitch still uses the copy that arrives here.
-    if (_guitarInputOpen && await _openExclusive()) return;
+    // It always prefers the Rocksmith cable, so an iRig chosen while that
+    // cable is also plugged in stays on the shared recorder.
+    final exclusiveOk =
+        source == EarSource.cable ||
+        (source == EarSource.irig && !_cablePresent);
+    if (_guitarInputOpen && exclusiveOk && await _openExclusive(source)) {
+      return;
+    }
     if (_closed) return;
     if (_guitarInputOpen) {
-      await _openSpeaker(throughIrig: _playsThroughIrig(device!.label));
+      await _openSpeaker(throughIrig: source == EarSource.irig);
     }
     if (_closed) return;
 
@@ -223,24 +389,70 @@ class GuitarEar {
     }
     _started = true;
     _subscription = stream.listen(_onBytes, onError: (_) {});
+    _report(name: inputName, devices: devices);
+  }
+
+  void _report({
+    required String name,
+    required List<InputDevice> devices,
+    bool exclusive = false,
+  }) {
     onReady?.call(
       HeardInput(
-        name: inputName,
-        isGuitar: device != null,
+        name: name,
+        isGuitar: _guitarInputOpen,
         speakerReady: _monitorReady,
-        inputs: device != null
-            ? const []
-            : [for (final item in devices) item.label],
-        irigSpeaker: device == null ? _irigSpeakerName() : null,
+        inputs: [for (final item in devices) item.label],
+        active: _openSource,
+        cablePresent: _cablePresent,
+        irigPresent: _irigPresent,
+        micPresent: _micPresent,
+        irigSpeaker: _guitarInputOpen ? null : _irigSpeakerName(),
+        exclusive: exclusive,
         latencyMs: _latencyMs,
       ),
     );
   }
 
+  /// A guitar that was just plugged in takes the seat from the room mic.
+  /// Unplugging a source clears a switch-off, so the next plug-in can
+  /// turn that source back on.
+  void _notePresence(List<InputDevice> devices) {
+    final cableNow = devices.any((device) => isRocksmithCable(device.label));
+    final irigNow = devices.any((device) => isIrigInput(device.label));
+    if (cableNow && !_sawCable && _preferred == EarSource.mic) {
+      _preferred = EarSource.cable;
+      _suppressed
+        ..clear()
+        ..addAll([EarSource.irig, EarSource.mic]);
+    } else if (irigNow &&
+        !_sawIrig &&
+        !cableNow &&
+        _preferred == EarSource.mic) {
+      _preferred = EarSource.irig;
+      _suppressed
+        ..clear()
+        ..addAll([EarSource.cable, EarSource.mic]);
+    }
+    if (!cableNow) {
+      _suppressed.remove(EarSource.cable);
+      if (_preferred == EarSource.cable) _preferred = null;
+    }
+    if (!irigNow) {
+      _suppressed.remove(EarSource.irig);
+      if (_preferred == EarSource.irig) _preferred = null;
+    }
+    _sawCable = cableNow;
+    _sawIrig = irigNow;
+    _cablePresent = cableNow;
+    _irigPresent = irigNow;
+    _micPresent = devices.any((device) => isRoomMic(device.label));
+  }
+
   /// Subscribes first so the first buffers are not thrown away, then asks
   /// Windows for the cable. A null result means exclusive was refused and
   /// the shared recorder should open instead.
-  Future<bool> _openExclusive() async {
+  Future<bool> _openExclusive(EarSource source) async {
     if (Platform.environment.containsKey('FLUTTER_TEST')) return false;
     _exclusivePcm = ExclusiveGuitar.pcm.listen(_onBytes, onError: (_) {});
     final opened = await ExclusiveGuitar.start();
@@ -250,22 +462,22 @@ class GuitarEar {
       await ExclusiveGuitar.stop();
       return false;
     }
+    final wantedCable = source == EarSource.cable;
+    final gotCable = isRocksmithCable(opened.name);
+    if (wantedCable != gotCable) {
+      await _exclusivePcm?.cancel();
+      _exclusivePcm = null;
+      await ExclusiveGuitar.stop();
+      return false;
+    }
     _exclusive = true;
     _sampleRate = opened.sampleRate;
+    _listenAfresh();
     _latencyMs = opened.renderExclusive ? 20 : 35;
     _monitorReady = true;
     _started = true;
     unawaited(ExclusiveGuitar.setVolume(_volume));
-    onReady?.call(
-      HeardInput(
-        name: opened.name,
-        isGuitar: true,
-        speakerReady: true,
-        inputs: const [],
-        exclusive: true,
-        latencyMs: _latencyMs,
-      ),
-    );
+    _report(name: opened.name, devices: const [], exclusive: true);
     return true;
   }
 
@@ -281,20 +493,25 @@ class GuitarEar {
     _subscription = null;
     if (recording) await _recorder.cancel();
     _started = false;
-    _window.clear();
-    _holding = false;
   }
 
   Future<void> dispose() async {
     _closed = true;
     await stop();
-    _monitorHandle = null;
-    _monitor = null;
+    _closeSpeaker();
+    await _recorder.dispose();
+  }
+
+  /// Shuts the shared speaker engine. Its sounds go with it.
+  void _closeSpeaker() {
     _monitorReady = false;
+    _monitor = null;
+    _monitorHandle = null;
+    _click = null;
+    _accentClick = null;
     if (SoLoud.instance.isInitialized) {
       SoLoud.instance.deinit();
     }
-    await _recorder.dispose();
   }
 
   /// Plays the guitar. An iRig uses its own jack. The Rocksmith cable uses
@@ -338,37 +555,47 @@ class GuitarEar {
         monitor,
         volume: _speakerOn ? _volume : 0,
       );
+      _click = await _loadClick(hertz: 1046.5);
+      _accentClick = await _loadClick(hertz: 1568);
       _monitorReady = true;
     } catch (_) {
-      _monitorReady = false;
-      _monitor = null;
-      _monitorHandle = null;
-      if (SoLoud.instance.isInitialized) {
-        SoLoud.instance.deinit();
-      }
+      _closeSpeaker();
     }
+  }
+
+  Future<AudioSource> _loadClick({required double hertz}) {
+    final click = clickPcm(sampleRate: _sampleRate, hertz: hertz);
+    return SoLoud.instance.loadMem(
+      'click-$hertz.wav',
+      wavBytes(click, sampleRate: _sampleRate),
+    );
   }
 
   void _onBytes(Uint8List bytes) {
     if (_closed) return;
+    final nowMicros = _watch.elapsedMicroseconds;
     _play(bytes);
+    onSound?.call(bytes);
 
     final data = ByteData.sublistView(bytes);
+    final samples = Float64List(bytes.length ~/ 2);
     var sum = 0.0;
-    var count = 0;
-    for (var i = 0; i + 1 < bytes.length; i += 2) {
-      final sample = data.getInt16(i, Endian.little) / 32768;
-      _window.add(sample);
+    for (var i = 0; i < samples.length; i++) {
+      final sample = data.getInt16(i * 2, Endian.little) / 32768;
+      samples[i] = sample;
       sum += sample * sample;
-      count++;
     }
-    if (count > 0) onLevel?.call(math.sqrt(sum / count));
+    if (samples.isEmpty) return;
+    onLevel?.call(math.sqrt(sum / samples.length));
 
-    const size = 2048;
-    while (_window.length >= size) {
-      final midi = midiFromSamples(_window.sublist(0, size), _sampleRate);
-      _window.removeRange(0, 1024);
-      _hear(midi);
+    final plucks = _detector.hear(samples);
+    _clock.arrived(
+      samplesHeard: _detector.samplesHeard,
+      atMicros: nowMicros,
+    );
+    for (final pluck in plucks) {
+      final agoMicros = nowMicros - _clock.microsAt(pluck.atSample);
+      onPluck?.call(pluck.midi, agoMicros / 1000);
     }
   }
 
@@ -392,17 +619,6 @@ class GuitarEar {
     }
   }
 
-  /// A new pluck is a pitch after silence. A ringing note stays one attack,
-  /// so a long tone is not scored on every buffer.
-  void _hear(int? midi) {
-    if (midi == null) {
-      _holding = false;
-      return;
-    }
-    if (_holding) return;
-    _holding = true;
-    onPitch?.call(midi);
-  }
 }
 
 /// The iRig speaker, when Windows started that side and not the guitar input.
@@ -421,11 +637,26 @@ String? _irigSpeakerName() {
 /// It wins over an iRig, because the iRig's guitar side may still be off.
 /// A room microphone is not a match.
 InputDevice? guitarInput(List<InputDevice> devices) {
+  final source = listeningChoice(
+    cable: devices.any((device) => isRocksmithCable(device.label)),
+    irig: devices.any((device) => isIrigInput(device.label)),
+    mic: false,
+    suppressed: const {EarSource.mic},
+    preferred: null,
+  );
+  if (source == null) return null;
+  return deviceFor(devices, source);
+}
+
+/// The recording device for one switch.
+InputDevice? deviceFor(List<InputDevice> devices, EarSource source) {
   for (final device in devices) {
-    if (isRocksmithCable(device.label)) return device;
-  }
-  for (final device in devices) {
-    if (device.label.toLowerCase().contains('irig')) return device;
+    final matches = switch (source) {
+      EarSource.cable => isRocksmithCable(device.label),
+      EarSource.irig => isIrigInput(device.label),
+      EarSource.mic => isRoomMic(device.label),
+    };
+    if (matches) return device;
   }
   return null;
 }
@@ -439,10 +670,14 @@ bool isRocksmithCable(String label) {
       name.contains('guitar adapter');
 }
 
-/// An iRig input can play back through the iRig jack. The Rocksmith cable
-/// cannot, so its monitor is the PC speakers.
-bool _playsThroughIrig(String label) {
+/// The iRig's recording side. Its speaker jack is a different device.
+bool isIrigInput(String label) {
   return !isRocksmithCable(label) && label.toLowerCase().contains('irig');
+}
+
+/// A laptop or room microphone. The guitar cables are not this.
+bool isRoomMic(String label) {
+  return !isRocksmithCable(label) && !isIrigInput(label);
 }
 
 int _sampleRateFor(InputDevice? device) {

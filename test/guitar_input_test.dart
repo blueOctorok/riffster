@@ -36,4 +36,37 @@ void main() {
 
     expect(guitarInput(devices)?.label, 'Microphone (iRig USB)');
   });
+
+  test('the room mic stays off unless it is the one asked for', () {
+    expect(
+      listeningChoice(
+        cable: true,
+        irig: true,
+        mic: true,
+        suppressed: const {EarSource.mic},
+        preferred: null,
+      ),
+      EarSource.cable,
+    );
+    expect(
+      listeningChoice(
+        cable: true,
+        irig: true,
+        mic: true,
+        suppressed: const {EarSource.cable, EarSource.irig, EarSource.mic},
+        preferred: null,
+      ),
+      isNull,
+    );
+    expect(
+      listeningChoice(
+        cable: true,
+        irig: false,
+        mic: true,
+        suppressed: const {EarSource.cable, EarSource.irig},
+        preferred: EarSource.mic,
+      ),
+      EarSource.mic,
+    );
+  });
 }

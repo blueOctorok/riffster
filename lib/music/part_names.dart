@@ -82,7 +82,11 @@ ImportedTrack _renamed(
   seen[role] = number;
   final label = labels[role]!;
   final name = (totals[role] ?? 1) == 1 ? label : '$label $number';
-  return ImportedTrack(name: name, notes: track.notes);
+  return ImportedTrack(
+    name: name,
+    notes: track.notes,
+    stringCount: track.stringCount,
+  );
 }
 
 /// How many notes sound at each moment.

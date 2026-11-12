@@ -13,41 +13,26 @@ const onTimeMs = 80;
 /// note, because that sound belongs to a different moment.
 const sameBeatMs = 250;
 
-/// The written notes closest to [positionMs], when they are still this beat.
-///
-/// Empty when the playhead is between phrases. The caller scores that as a miss.
-List<TabNote> notesNear(List<TabNote> notes, int positionMs) {
-  int? bestTime;
-  var bestDistance = sameBeatMs + 1;
-  for (final note in notes) {
-    final distance = (note.timeMs - positionMs).abs();
-    if (distance < bestDistance) {
-      bestDistance = distance;
-      bestTime = note.timeMs;
-    }
-  }
-  if (bestTime == null) return const [];
-  return [
-    for (final note in notes)
-      if (note.timeMs == bestTime) note,
-  ];
-}
-
 /// Scores one sound against the notes at a single moment.
 ///
 /// The mic cannot see the fretboard, so a single note is judged by its MIDI
 /// pitch. The same pitch on another string still hits. A chord is two or
 /// more notes at that moment: only the timing counts, until single notes
 /// are fair. An empty moment is a miss.
+///
+/// [speed] is how fast the song clock runs against a real clock. Practice
+/// at half speed stretches the song, not the player's reflexes, so the gap
+/// is turned back into real milliseconds before it is judged.
 ScoreMark scoreMoment({
   required List<TabNote> written,
-  required int playedAtMs,
+  required num playedAtMs,
   int? playedMidi,
+  double speed = 1,
 }) {
   if (written.isEmpty) return ScoreMark.miss;
 
   final dueAtMs = written.first.timeMs;
-  final timing = _timing(playedAtMs - dueAtMs);
+  final timing = _timing((playedAtMs - dueAtMs) / speed);
   if (timing == ScoreMark.miss) return ScoreMark.miss;
   if (written.length >= 2) return timing;
 
@@ -57,46 +42,42 @@ ScoreMark scoreMoment({
   return timing;
 }
 
-ScoreMark _timing(int deltaMs) {
+ScoreMark _timing(double deltaMs) {
   final distance = deltaMs.abs();
   if (distance <= onTimeMs) return ScoreMark.hit;
   if (distance > sameBeatMs) return ScoreMark.miss;
   return deltaMs < 0 ? ScoreMark.early : ScoreMark.late;
 }
 
-/// Paints [mark] onto the notes that were just judged.
-///
-/// A hit, an early, or a late stays. A miss can still become one of those
-/// if the real pluck arrives a little late. The microphone never reports
-/// silence, so a miss from waiting is written by [expireUnplayed].
-void applyPlayedMark(
-  Map<TabNote, ScoreMark> marks,
-  List<TabNote> written,
-  ScoreMark mark,
-) {
-  for (final note in written) {
-    final existing = marks[note];
-    if (existing == ScoreMark.hit ||
-        existing == ScoreMark.early ||
-        existing == ScoreMark.late) {
-      continue;
-    }
-    marks[note] = mark;
-  }
+/// The word shown for a mark.
+String markLabel(ScoreMark mark) {
+  return switch (mark) {
+    ScoreMark.hit => 'Hit',
+    ScoreMark.miss => 'Miss',
+    ScoreMark.early => 'Early',
+    ScoreMark.late => 'Late',
+  };
 }
 
-/// A note the playhead has left behind, with no pluck in its window, is a miss.
+/// True once a moment has been played: on time, early, or late.
+bool isPlayed(ScoreMark? mark) => mark != null && mark != ScoreMark.miss;
+
+/// The mark a moment keeps when a new sound is judged against it.
 ///
-/// Silence has no pitch. The clock is what says the note went by unplayed.
-void expireUnplayed(
-  Map<TabNote, ScoreMark> marks,
-  List<TabNote> notes,
-  int positionMs,
-) {
-  for (final note in notes) {
-    if (marks.containsKey(note)) continue;
-    if (positionMs - note.timeMs > sameBeatMs) {
-      marks[note] = ScoreMark.miss;
-    }
-  }
+/// A hit, an early, or a late stays. A miss can still become one of those
+/// if the real pluck arrives a little late.
+ScoreMark keepBetterMark(ScoreMark? existing, ScoreMark next) {
+  return isPlayed(existing) ? existing! : next;
+}
+
+/// True when the playhead has left a moment too far behind to play it.
+///
+/// Silence has no pitch, so the clock is what says a note went by
+/// unplayed. [speed] is the same real-time correction as in [scoreMoment].
+bool windowHasPassed({
+  required int dueAtMs,
+  required num positionMs,
+  double speed = 1,
+}) {
+  return (positionMs - dueAtMs) / speed > sameBeatMs;
 }

@@ -61,6 +61,15 @@ class ExclusiveGuitar {
     } catch (_) {}
   }
 
+  /// A short tick out of the speakers. [accent] is the higher one that
+  /// marks beat one.
+  static Future<void> click({required bool accent}) async {
+    if (!Platform.isWindows) return;
+    try {
+      await _methods.invokeMethod<void>('click', accent);
+    } catch (_) {}
+  }
+
   static Future<void> stop() async {
     if (!Platform.isWindows) return;
     try {
