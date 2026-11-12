@@ -169,8 +169,9 @@ The domain `riffster.xyz` is already registered at Namecheap. The page lives in 
 - [ ] Film the clips again before the marketing page goes back up. They were filmed with the 80 ms rule, and one note in them reads late at 118 ms, which is now on time.
 - [ ] Decide whether plucking the strings on the page should make a sound.
 - [ ] Decide whether the page should take an email address for "tell me when the phone app is out". It needs somewhere to keep the addresses.
-- [ ] A picture for link previews (the image a link shows when it is pasted into a message).
-- [x] The Windows build is a zip of the whole release folder, `riffster-site/public/Riffster-windows.zip`, dated 12 November 2026. Repacked the same day with the 120 ms timing and the rings. An app change is not in the download until this zip is rebuilt and pushed.
+- [ ] A picture for link previews (the image a link shows when it is pasted into a message). The dog mark is ready to go on it.
+- [x] The dog mark is the Windows icon, the browser tab icon, and sits with the name in the app and on the site (2026-11-12). `tool/brand/make_brand.py` rebuilds every icon file from the two drawings beside it.
+- [x] The Windows build is a zip of the whole release folder, `riffster-site/public/Riffster-windows.zip`, dated 12 November 2026. Repacked the same day with the 120 ms timing and the rings, then the timing settings, then the dog icon. An app change is not in the download until this zip is rebuilt and pushed.
 - [x] Deployed to https://riffster-site.vercel.app on Pace Projects, 2026-11-12. The framework has to be Next.js. A new project was guessed as a plain file site, which served the zip and lost the page.
 - [x] Namecheap DNS pointed at Vercel on 2026-11-12. A `@` `216.150.1.1`, A `@` `216.150.16.1`, and CNAME `www` `f9f16c33a1c708b9.vercel-dns-016.com`. `www` redirects to the bare domain. Public DNS already returns the site. A network that still shows the parking page is holding the old answer.
 

@@ -33,6 +33,7 @@ import '../widgets/practice/timing_check_dialog.dart';
 import '../widgets/practice/transport_dock.dart';
 import '../widgets/room.dart';
 import '../widgets/stage/stage_view.dart';
+import '../widgets/wordmark.dart';
 
 /// The practice screen. It scrolls the loaded song, or the chords you
 /// have dropped into the lane.
@@ -574,7 +575,7 @@ class _TopBar extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        const Text('Riffster', style: RiffText.wordmark),
+        const Wordmark(),
         const SizedBox(width: 22),
         InstrumentSwitch(selected: instrument, onSelected: onInstrument),
         const Spacer(),

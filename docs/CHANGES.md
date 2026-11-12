@@ -1,5 +1,21 @@
 # Changes
 
+## 2026-11-12 — Riffster has a face
+
+The brand mark is a line drawing of the owner's dog: pointed ears, cheek fluff, two eyebrow dots, a grin, and a pink tongue. It is drawn in the app's gold on a dark brown tile. The tongue is the only other color.
+
+Where it is used:
+
+- The Windows icon: the `.exe`, the taskbar, and the window's corner (`windows/runner/resources/app_icon.ico`).
+- Inside the app, beside the name on the chooser and at the top of the practice screen. Both use one widget, `lib/widgets/wordmark.dart`.
+- On the site: the browser tab icon, above the name on the homepage, and beside the name in the `/preview` header (`src/components/brand-mark.tsx`).
+
+There are two drawings of the same dog in `tool/brand/`. The detailed one is the mark. The simple one has the same outline with solid eyes and a solid nose, and it is used for the 16, 24, and 32 pixel icons, where fine lines blur into a smudge. `tool/brand/make_brand.py` turns the two drawings into every file above. It cuts the dog off its tile, so the mark can sit on any dark background, and it thickens the lines for the small sizes. Run it again if the artwork changes. The command is at the top of that file.
+
+The Windows zip was rebuilt and pushed with this change, so the download carries the icon.
+
+Not done: the footer on `/preview` and the browser build in `web/` still have no dog. A picture for link previews is still open in `TODOS.md`, and the mark is the obvious thing to put on it.
+
 ## 2026-11-12 — Easy, Medium, and Hard timing
 
 A real run on the new build was 82% on time, with the misses at zero and the early notes about 88 ms ahead. That is fair, and it still felt strict. Timing now has three settings, saved with the wood and the instrument. They sit at the bottom of the practice screen, next to the woods.
@@ -28,7 +44,7 @@ First report from a real bass: sound works and the notes are detected well. Two 
 
 Not changed, and worth knowing:
 
-- None of this had been played on the bass when it was written. The user then played the older download: about 89 ms early on average, no misses, and 33 extra sounds. The timing check had not been run, so the cable delay was still a guess.
+- None of this had been played on the bass when it was written. The user then played the older download: about 99 ms early on average, no misses, and 33 extra sounds. The timing check had not been run, so the cable delay was still a guess.
 - Where the extra sounds come from is not confirmed. The likely source is a ringing bass string being read a second time, an octave up. That would also fit the box showing a name like G2. It needs recorded clips from the bass to prove and fix (Stage 2).
 - Extra sounds are still counted for the end-of-run card ("sounds were wrong or extra notes"). That line may overstate for the same reason.
 - At a slowed speed the window is still 120 real milliseconds, while the note crosses the line more slowly. At 50% a pluck on the leading edge is still early.

@@ -1,3 +1,4 @@
+import { BrandMark } from "@/components/brand-mark";
 import { DownloadButton } from "@/components/download-button";
 import { windowsBuild } from "@/lib/release";
 
@@ -5,7 +6,8 @@ import { windowsBuild } from "@/lib/release";
 export function EarlyPage() {
   return (
     <main className="flex flex-1 flex-col items-center justify-center px-6 py-24 text-center">
-      <p className="font-serif text-5xl text-cream">Riffster</p>
+      <BrandMark size={104} />
+      <p className="mt-4 font-serif text-5xl text-cream">Riffster</p>
       <h1 className="mt-8 max-w-xl font-serif text-4xl leading-tight text-balance text-cream sm:text-5xl">
         This app is still in development.
       </h1>

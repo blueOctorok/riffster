@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../models/instrument.dart';
 import '../theme/riffster_theme.dart';
 import '../widgets/room.dart';
+import '../widgets/wordmark.dart';
 
 /// The first thing a new player sees: one question, two answers.
 class InstrumentChooser extends StatelessWidget {
@@ -18,7 +19,7 @@ class InstrumentChooser extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Text('Riffster', style: RiffText.wordmark),
+              const Wordmark(),
               const SizedBox(height: 28),
               Text(
                 'What are you playing?',
