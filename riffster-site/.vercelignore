@@ -1,0 +1,7 @@
+# Used instead of .gitignore when this folder is uploaded.
+# The Windows zip is listed in .gitignore so it is never committed,
+# and it is left out of this file so the upload still carries it.
+node_modules
+.next
+out
+.vercel

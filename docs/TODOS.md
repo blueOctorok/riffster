@@ -151,11 +151,12 @@ One list of grips: the name, the fret on each string, and the finger on each fre
 
 ## Download page
 
-The domain `riffster.xyz` is already registered at Namecheap. Build the page only after a Windows build exists to link to.
+The domain `riffster.xyz` is already registered at Namecheap. The page lives in `riffster-site/` and does not touch the Flutter app.
 
-- [ ] A short Next.js page on Vercel: what Riffster is, and a download button. The site is not the Flutter app. The paid generator will later use a server-only route on this same site. The Anthropic key stays in that server setting and is never sent to the browser or the `.exe`.
-- [ ] The `.exe` lives on a GitHub release. The page links to that file. Do not commit the build into the repo.
-- [ ] Point the Namecheap DNS for `riffster.xyz` at Vercel when the page is ready.
+- [x] A short Next.js page: what Riffster is, and a download button. Built 2026-11-12. The paid generator will later use a server-only route on this same site. The Anthropic key stays in that server setting and is never sent to the browser or the `.exe`.
+- [x] The Windows build is a zip of the whole release folder, `riffster-site/public/Riffster-windows.zip`, dated 12 November 2026. Git ignores it. It is uploaded with the site, not committed.
+- [x] Deployed to https://riffster-site.vercel.app on Pace Projects, 2026-11-12. The framework has to be Next.js. A new project was guessed as a plain file site, which served the zip and lost the page.
+- [ ] Point the Namecheap DNS for `riffster.xyz` at Vercel when the page is ready. Do not do this until asked.
 
 ## Songwriting
 

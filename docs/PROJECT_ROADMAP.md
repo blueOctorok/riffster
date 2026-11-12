@@ -31,6 +31,7 @@ The name is Riffster. `riffster.xyz` is registered at Namecheap (bought 2026-11-
 ## Stack
 
 - Flutter, Windows first. Android and iPhone come from this same project later.
+- The download page is Next.js in `riffster-site/`, App Router, TypeScript, Tailwind CSS v4. Vercel builds that folder only. The Windows zip in its `public/` folder is gitignored and is not part of the Flutter app.
 - alphaTab (JavaScript, inside a hidden web view) will turn a Guitar Pro file into a note list. The screen never parses `.gp` itself.
 - A Flutter audio plugin will listen to the iRig. A short pitch check compares that frequency to the note at the playhead.
 - Songs and scores stay in files on the machine.
@@ -72,6 +73,7 @@ The checklists are in `TODOS.md`. Work top to bottom.
 ## Pickup notes
 
 - Flutter SDK: `C:\Users\blaha\flutter` (stable 3.47.9). `C:\Users\blaha\flutter\bin` is on the user PATH. A terminal that was already open may still need a restart before `flutter` is found.
+- The download page is `riffster-site/`, live at https://riffster-site.vercel.app on Pace Projects (Vercel scope `storm-chain`, project `riffster-site`). `npm run dev` there opens it locally. The zip is rebuilt from the project root with `flutter build windows --release`, then `tar -a -cf riffster-site/public/Riffster-windows.zip -C build/windows/x64/runner/Release .`. Update the date in `src/components/download-page.tsx` when the zip changes, then deploy again with `npx vercel deploy --yes --prod --scope storm-chain --project riffster-site` from `riffster-site`. A git push does not carry the zip. The domain is not pointed yet.
 - Windows Developer Mode is on. Flutter needs it to link plugins. The Guitar Pro reader was the first one.
 - String 1 is the top line of the tab (high E on guitar, G on bass). The last string is the low E. `lib/models/instrument.dart` holds each instrument's string names and open pitches.
 - The scroll maps time to pixels: `x = playhead + (noteTime - now) / 1000 * pixelsPerSecond`. The speed is picked per song, between 170 and 420, so tight notes do not overlap. The playhead is a fifth of the way in. All of that is in `lib/widgets/stage/stage_metrics.dart`.

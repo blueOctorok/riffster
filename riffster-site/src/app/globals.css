@@ -1,0 +1,16 @@
+@import "tailwindcss";
+
+/* The same workshop colors as the Windows app. */
+@theme {
+  --color-room: #1a1814;
+  --color-room-deep: #100e0b;
+  --color-panel: #241f1a;
+  --color-line: #3a342c;
+  --color-cream: #f3eee6;
+  --color-quiet: #8a8175;
+  --color-faint: #5c564e;
+  --color-gold: #e4b15a;
+  --color-ink: #1a1814;
+  --font-sans: var(--font-instrument-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-serif: var(--font-instrument-serif), ui-serif, Georgia, serif;
+}

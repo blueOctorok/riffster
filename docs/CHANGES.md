@@ -1,5 +1,13 @@
 # Changes
 
+## 2026-11-12 — A download page, in its own folder
+
+`riffster-site/` is a Next.js app for the download page. It does not change the Flutter app. Flutter never reads that folder.
+
+The page is one screen: what Riffster is, and a Windows download. The file is `riffster-site/public/Riffster-windows.zip`, a release build of the whole app (the program plus the files that have to sit beside it). It is about 35 MB. Git ignores the zip, so it is never committed. `.vercelignore` leaves it out of the ignore list on purpose, so a Vercel upload from that folder still carries it.
+
+It is live at https://riffster-site.vercel.app, on the Pace Projects team (the Vercel name for that team is `storm-chain`). The domain `riffster.xyz` is not pointed at it. The earlier plan was to keep the program on a GitHub release. This build rides with the site instead, because the GitHub command-line tool is not installed and the file has to reach the desktop. A push to GitHub would not update the download: the zip is ignored by git, so the site is deployed from this folder with the Vercel command line.
+
 ## 2026-11-11 — Stage 2: the bass is heard (built, not yet played on a real bass)
 
 The code for Stage 2 is in. None of it has been heard with a real instrument yet, so the stage is not finished. The list of what is unchecked is at the bottom of this entry.
