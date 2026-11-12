@@ -67,7 +67,10 @@ void main() {
 
     _wait(run, 2000);
     run.pluck(72, latencyMs: 0);
-    expect(run.lastMark, ScoreMark.miss);
+    // A wrong note is not a verdict on a played note, so the strip
+    // keeps quiet about it.
+    expect(run.lastMark, isNull);
+    expect(run.heardMidi, isNull);
     expect(run.strayNotes, 1);
     expect(run.summary.missed, 1);
 
@@ -85,13 +88,37 @@ void main() {
     run.pluck(60, latencyMs: 0);
     expect(run.lastTimingMs, closeTo(30, 0.01));
 
-    // 120 ms before the second note: the same beat, and early.
-    _wait(run, 350);
+    // 150 ms before the second note: the same beat, and early.
+    _wait(run, 320);
     run.pluck(61, latencyMs: 0);
     expect(run.lastMark, ScoreMark.early);
-    expect(run.lastTimingMs, closeTo(-120, 0.01));
+    expect(run.lastTimingMs, closeTo(-150, 0.01));
+  });
 
+  test('an extra sound after a hit leaves the feedback strip alone', () {
+    final run = PracticeRun(_fourNotes())..play();
+
+    _wait(run, 2000 + 30);
+    run.pluck(60, latencyMs: 0);
+
+    // The same ringing string, read a second time an octave up.
+    _wait(run, 100);
     run.pluck(72, latencyMs: 0);
+
+    expect(run.heardMidi, 60);
+    expect(run.lastMark, ScoreMark.hit);
+    expect(run.lastTimingMs, closeTo(30, 0.01));
+    expect(run.summary.missed, 0);
+    expect(run.strayNotes, 1);
+  });
+
+  test('while paused, the strip names a sound and gives no verdict', () {
+    final run = PracticeRun(_fourNotes());
+
+    run.pluck(60, latencyMs: 0);
+
+    expect(run.heardMidi, 60);
+    expect(run.lastMark, isNull);
     expect(run.lastTimingMs, isNull);
   });
 
@@ -137,13 +164,13 @@ void main() {
     expect(run.bestStreak, 1);
   });
 
-  test('a sound during the count-in is heard and not judged', () {
+  test('a sound during the count-in is not judged', () {
     final run = PracticeRun(_fourNotes())..play();
 
     _wait(run, 900);
     run.pluck(60, latencyMs: 0);
 
-    expect(run.heardMidi, 60);
+    expect(run.heardMidi, isNull);
     expect(run.lastMark, isNull);
     expect(run.strayNotes, 0);
     expect(run.marks, isEmpty);
@@ -213,7 +240,7 @@ void main() {
     // A pluck while the old notes go by again is not judged.
     _wait(longer, 500);
     longer.pluck(60, latencyMs: 0);
-    expect(longer.lastMark, isNull);
+    expect(longer.streak, 6);
     expect(longer.summary.onTime, 6);
 
     _wait(longer, 1500);
@@ -230,11 +257,11 @@ void main() {
     _wait(run, 4000);
     expect(run.positionMs, closeTo(0, 0.01));
 
-    // 100 real milliseconds late is 50 ms of song time. Still judged late.
-    _wait(run, 100);
+    // 150 real milliseconds late is 75 ms of song time. Still judged late.
+    _wait(run, 150);
     run.pluck(60, latencyMs: 0);
     expect(run.lastMark, ScoreMark.late);
-    expect(run.averageTimingMs, closeTo(100, 0.01));
+    expect(run.averageTimingMs, closeTo(150, 0.01));
   });
 
   test('a loop counts in once, then wraps with no gap', () {

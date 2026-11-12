@@ -49,9 +49,16 @@ class StagePainter extends CustomPainter {
       TileMode.repeated,
     );
 
+  /// How much an unplayed note has grown by the time it is due.
+  static const _arrivalSwell = 0.12;
+
   double get _position => run.positionMs;
   double get _now => run.nowMs;
   double get _radius => metrics.noteRadius;
+
+  /// A note at the size it is when it is due, with a sliver of board
+  /// left between it and its ring.
+  double get _targetRadius => _radius * (1 + _arrivalSwell) + 2.5;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -74,6 +81,7 @@ class StagePainter extends CustomPainter {
     _paintOnTimeBand(canvas);
     _paintStrings(canvas, size);
     _paintPlayhead(canvas);
+    _paintTargets(canvas);
     _paintLoopEnds(canvas, size, passes);
     for (final item in seen) {
       _paintTails(canvas, item);
@@ -195,9 +203,9 @@ class StagePainter extends CustomPainter {
     final warmth = _streakWarmth;
     final band = RRect.fromLTRBR(
       x - half,
-      metrics.topStringY - 20,
+      metrics.topStringY - _targetRadius - 4,
       x + half,
-      metrics.bottomStringY + 20,
+      metrics.bottomStringY + _targetRadius + 4,
       const Radius.circular(8),
     );
     canvas.drawRRect(
@@ -330,8 +338,9 @@ class StagePainter extends CustomPainter {
 
   void _paintPlayhead(Canvas canvas) {
     final x = metrics.playheadX;
-    final top = metrics.topStringY - 24;
-    final bottom = metrics.bottomStringY + 24;
+    // The arrowheads sit just clear of the outer rings.
+    final top = metrics.topStringY - _targetRadius - 10;
+    final bottom = metrics.bottomStringY + _targetRadius + 10;
     final warmth = _streakWarmth;
     // A slow breath in the glow once a streak is on.
     final breath = 1 + 0.18 * warmth * math.sin(_now / 1000 * math.pi * 2.2);
@@ -390,6 +399,25 @@ class StagePainter extends CustomPainter {
           ..close(),
         cap,
       );
+    }
+  }
+
+  /// A ring on every string where it crosses the playhead. It is the
+  /// size of a note at the moment the note is due, so "when do I pluck"
+  /// has an answer the eye can use: when the note fills its ring.
+  void _paintTargets(Canvas canvas) {
+    // A little shade inside makes the ring read as a seat in the board.
+    final seat = Paint()
+      ..color = Color.fromRGBO(0, 0, 0, neck.isLight ? 0.1 : 0.22);
+    final ring = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2
+      ..color = (neck.isLight ? RiffColors.goldDeep : RiffColors.goldLit)
+          .withValues(alpha: 0.75);
+    for (var string = 1; string <= metrics.instrument.stringCount; string++) {
+      final center = Offset(metrics.playheadX, metrics.stringY(string));
+      canvas.drawCircle(center, _targetRadius, seat);
+      canvas.drawCircle(center, _targetRadius, ring);
     }
   }
 
@@ -473,7 +501,7 @@ class StagePainter extends CustomPainter {
       scale = ui.lerpDouble(1, 0.9, settled)!;
     } else if (mark == null) {
       nearness = _nearness(moment.timeMs + seen.pass.shiftMs);
-      scale = 1 + 0.12 * nearness;
+      scale = 1 + _arrivalSwell * nearness;
     } else if (age != null && age < 260) {
       // A played note pops, then settles.
       final pop = 1 - age / 260;
@@ -796,13 +824,14 @@ class StagePainter extends CustomPainter {
     }
   }
 
-  /// Before the first Play, a quiet line saying which key starts it.
+  /// Before the first Play, a quiet line saying which key starts it and
+  /// when a note is meant to be played.
   void _paintRestHint(Canvas canvas) {
     final atRest =
         !run.playing && !run.finished && _position <= run.restMs + 1;
     if (!atRest || run.timeline.moments.isEmpty) return;
     final hint = ink.text(
-      'Press Space to play',
+      'Press Space, then play each note as it fills its ring',
       color: neck.ink.withValues(alpha: 0.5),
       size: 20,
       family: RiffFonts.display,

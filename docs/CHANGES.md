@@ -1,5 +1,24 @@
 # Changes
 
+## 2026-11-12 — Fairer timing, and a Heard box that only reports notes
+
+First report from a real bass: sound works and the notes are detected well. Two things were off.
+
+**Timing was too strict on early.** On time was 80 ms each side of the beat. A bass note is drawn 40 pixels wide and the warm-up scrolls at 170 pixels a second, so the circle first touches the gold line 118 ms before the beat. A pluck on that leading edge looked right and was marked early. On time is now 120 ms each side (`onTimeMs` in `lib/music/score_note.dart`). At full speed, a note that is touching the gold line is on time, on bass and on guitar, for any song. A test holds the note size, the scroll speed, and the window together. The band drawn around the playhead and the green part of the timing gauge follow the same number, so both are wider. Early and late still run out to 250 ms.
+
+**The Heard box said "Miss" on a run with no missed notes.** The box reported every sound, and called any sound that matched no note a miss. An extra sound is not a missed note. During a run the box, its pill, and the timing gauge now change only when a note counts: on time, early, or late. While paused the box still names whatever it hears, with no verdict, so the cable can be checked.
+
+**When to pluck was a guess.** Every string now has a ring where it crosses the gold line. The ring is the size of a note at the moment the note is due, so the rule can be read off the screen: play the note as it fills its ring. The line shown before Play says the same thing. The playhead and its band were made a little taller so the outer rings sit inside them. It is drawn in `_paintTargets` in `lib/widgets/stage/stage_painter.dart`.
+
+Not changed, and worth knowing:
+
+- None of this has been played on the bass yet. It is in a local build, not in the site download.
+- Where the extra sounds come from is not confirmed. The likely source is a ringing bass string being read a second time, an octave up. That would also fit the box showing a name like G2. It needs recorded clips from the bass to prove and fix (Stage 2).
+- Extra sounds are still counted for the end-of-run card ("sounds were wrong or extra notes"). That line may overstate for the same reason.
+- At a slowed speed the window is still 120 real milliseconds, while the note crosses the line more slowly. At 50% a pluck on the leading edge is still early.
+- The clips on the shelved marketing page were filmed with the 80 ms rule. One note in them is marked late at 118 ms, which is now on time. The filming script is updated, and the clips are not filmed again yet.
+- The Windows download on the site is still the earlier build.
+
 ## 2026-11-12 — The download is a real zip
 
 The file at `riffster-site/public/Riffster-windows.zip` was a tar archive with a `.zip` name. `tar -a` does not write the zip format Windows Explorer opens, so the download from the site would not unzip. It is the same Windows build, repacked as a zip. The page now says 15 MB.

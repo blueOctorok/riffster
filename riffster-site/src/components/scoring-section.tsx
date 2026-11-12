@@ -2,12 +2,12 @@ import { LoopVideo } from "@/components/loop-video";
 import { Reveal } from "@/components/reveal";
 import { SectionHeading } from "@/components/section-heading";
 
-/** The app's own windows: 80 ms is on time, 250 ms is still the same beat. */
+/** The app's own windows: 120 ms is on time, 250 ms is still the same beat. */
 const marks = [
   {
     name: "Hit",
     color: "border-hit shadow-hit/60",
-    meaning: "The right note, within 80 milliseconds of the beat.",
+    meaning: "The right note, within 120 milliseconds of the beat.",
   },
   {
     name: "Early or late",

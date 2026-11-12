@@ -19,7 +19,13 @@ Since 2026-11-11 this section is the order of work. The numbered sections furthe
 - [x] End-of-run card with counts, early or late tendency, and the bars that held misses.
 - [x] Every earlier control and the chord book still work. Tests cover them.
 - [x] The user approved the look on 2026-11-11. It can spread to the other screens.
-- [ ] Hits are seen with a real instrument plugged in. So far only test code has driven them.
+- [x] Hits are seen with a real instrument plugged in. The user played the bass warm-up on 2026-11-12: sound works and notes are detected well.
+- [x] On time widened from 80 to 120 ms after that session, so a note touching the gold line at full speed is on time.
+- [x] The Heard box no longer says "Miss" for a sound that matched no note. It changes only when a note counts.
+- [x] A ring on every string at the playhead, the size of a note when it is due. The line before Play says "play each note as it fills its ring". Approved as an idea on 2026-11-12.
+- [ ] The user tries the 120 ms window and the rings on the bass and says whether it is fair and clear.
+- [ ] Decide whether the on-time window should grow when the song is slowed. Today it stays 120 real milliseconds, so at 50% a pluck on the note's leading edge is still early.
+- [ ] Find where the extra sounds come from (likely a ringing string read again an octave up), using recorded clips. Until then, decide whether the end-of-run line about wrong or extra notes should stay.
 - [ ] Smoothness is checked with Flutter's performance overlay while a fast line plays.
 
 ### Stage 2: The bass is heard
@@ -29,7 +35,7 @@ Built on 2026-11-11. The boxes still open need a bass plugged in.
 - [x] New pluck detector: range from the instrument (bass about 35 to 420 Hz), pluck time split from pitch, a pitch change with no silence is a new note.
 - [x] Tests with made-up waves: low E reads E1 under a louder overtone, two back-to-back notes give two plucks, pluck time within 10 ms.
 - [x] A debug-only Record clip button saves what the cable heard, with the notes on the stage as its written answer. A test scores the detector against every clip and fails if one is heard worse than before.
-- [ ] Record the clips on the user's bass: each open string, fret 12 on each, a slow line, and a fast line with no gaps. Fix each `.txt` if what was played differs from the stage.
+- [ ] Record the clips on the user's bass: each open string, fret 12 on each, a slow line, and a fast line with no gaps. Fix each `.txt` if what was played differs from the stage. The Record clip button needs the app started with `flutter run -d windows` from the project and an open input. The order asked for on 2026-11-12, one clip each: (1) open E A D G, answer `E1 A1 D2 G2`; (2) fret 12 on E A D G, answer `E2 A2 D3 G3`; (3) the warm-up as written; (4) the warm-up fast with no gaps. Clips 1 and 2 are saved with the warm-up as their answer, so their `.txt` files must be rewritten.
 - [ ] Tune the two detector thresholds (`_floor`, `_jump` in `pluck_detector.dart`) against those clips.
 - [ ] The detector runs off the screen thread. Left on the main thread on purpose: it measured 1 to 20 ms of work per second of sound. Move it only if the performance overlay shows dropped frames. Waiting on the user's OK for this change of plan.
 - [ ] On the bass: open E, A, D, G and fret 12 on each show the right name.
@@ -158,7 +164,7 @@ The domain `riffster.xyz` is already registered at Namecheap. The page lives in 
 - [x] Shelved that page the same day. The homepage is a short "still in development" note with the download. The marketing page is at `/preview` and is not linked.
 - [ ] Put the marketing page back on the homepage when the product is ready. Change `src/app/page.tsx` to render `LandingPage`.
 - [x] `tool/site_clips_test.dart` films the clips from the app's own widgets. Film them again whenever the app's look changes.
-- [ ] Film the clips again once the listener has been heard on a real bass, if the look of a hit changes.
+- [ ] Film the clips again before the marketing page goes back up. They were filmed with the 80 ms rule, and one note in them reads late at 118 ms, which is now on time.
 - [ ] Decide whether plucking the strings on the page should make a sound.
 - [ ] Decide whether the page should take an email address for "tell me when the phone app is out". It needs somewhere to keep the addresses.
 - [ ] A picture for link previews (the image a link shows when it is pasted into a message).

@@ -1,6 +1,12 @@
+import 'dart:ui';
+
 import 'package:flutter_test/flutter_test.dart';
+import 'package:riffster/models/instrument.dart';
 import 'package:riffster/models/tab_note.dart';
+import 'package:riffster/models/tab_song.dart';
 import 'package:riffster/music/score_note.dart';
+import 'package:riffster/music/song_timeline.dart';
+import 'package:riffster/widgets/stage/stage_metrics.dart';
 
 TabNote _note({required int midi, int string = 1, int timeMs = 1000}) {
   return TabNote(
@@ -66,6 +72,34 @@ void main() {
     );
   });
 
+  test('at full speed, a note touching the gold line is on time', () {
+    // The slowest scroll is where a note takes longest to cross the line.
+    final slowest = scrollSpeedFor(
+      SongTimeline(const TabSong(title: 'Empty', tempoBpm: 100, notes: [])),
+      noteDiameter: 0,
+    );
+    for (final instrument in Instrument.values) {
+      final metrics = StageMetrics(
+        instrument: instrument,
+        size: const Size(1200, StageMetrics.height),
+        pixelsPerSecond: slowest,
+      );
+      // From the circle's edge on the line to its centre on the line.
+      final edgeToCentreMs = metrics.msAcross(metrics.noteRadius);
+
+      expect(edgeToCentreMs, lessThanOrEqualTo(onTimeMs), reason: '$instrument');
+      expect(
+        scoreMoment(
+          written: [_note(midi: 64)],
+          playedAtMs: 1000 - edgeToCentreMs,
+          playedMidi: 64,
+        ),
+        ScoreMark.hit,
+        reason: '$instrument',
+      );
+    }
+  });
+
   test('a hit stays, and a miss can still be saved', () {
     expect(keepBetterMark(null, ScoreMark.miss), ScoreMark.miss);
     expect(keepBetterMark(ScoreMark.miss, ScoreMark.hit), ScoreMark.hit);
@@ -82,11 +116,11 @@ void main() {
   test('half speed is judged in real time, not in song time', () {
     final written = [_note(midi: 64)];
 
-    // 60 ms of song time at half speed is 120 real milliseconds early.
+    // 70 ms of song time at half speed is 140 real milliseconds early.
     expect(
       scoreMoment(
         written: written,
-        playedAtMs: 1000 - 60,
+        playedAtMs: 1000 - 70,
         playedMidi: 64,
         speed: 0.5,
       ),

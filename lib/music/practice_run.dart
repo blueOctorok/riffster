@@ -210,14 +210,18 @@ class PracticeRun extends ChangeNotifier {
   /// Sounds that matched nothing: a wrong pitch, or a note in a gap.
   int get strayNotes => _strayNotes;
 
-  /// The pitch of the latest sound, whether or not it was judged.
+  /// The pitch the feedback strip names. During a run that is the
+  /// latest note that counted. While paused it is the latest sound, so
+  /// the cable can be checked without playing a song. Null for a chord.
   int? get heardMidi => _heardMidi;
 
-  /// How the latest sound was judged. Null when it was only heard.
+  /// How the latest note that counted was judged: on time, early, or
+  /// late. Null before the first one, and after a sound heard while
+  /// paused.
   ScoreMark? get lastMark => _lastMark;
 
-  /// How far off the beat the latest sound was, in real milliseconds.
-  /// Above zero is late. Null when it was not played against a note.
+  /// How far off the beat that note was, in real milliseconds. Above
+  /// zero is late. Null whenever [lastMark] is.
   double? get lastTimingMs => _lastTimingMs;
 
   RunSummary get summary => _summary ??= RunSummary(_marks.values);
@@ -374,11 +378,16 @@ class PracticeRun extends ChangeNotifier {
   /// pitch, which is how a strum is heard. [latencyMs] is how long ago,
   /// in real time, the string was actually plucked.
   void pluck(int? midi, {required double latencyMs}) {
-    if (midi != null) _heardMidi = midi;
-    _lastTimingMs = null;
-    // The sound is late. Judge the moment the string was plucked. The
-    // delay is real time, and the song clock may be running slow.
-    _lastMark = _playing ? _judge(_positionMs - latencyMs * _speed, midi) : null;
+    if (_playing) {
+      // The sound is late. Judge the moment the string was plucked. The
+      // delay is real time, and the song clock may be running slow.
+      _judge(_positionMs - latencyMs * _speed, midi);
+    } else {
+      // Nothing is being judged, so the strip only names the sound.
+      if (midi != null) _heardMidi = midi;
+      _lastMark = null;
+      _lastTimingMs = null;
+    }
     _changed();
   }
 
@@ -474,18 +483,17 @@ class PracticeRun extends ChangeNotifier {
     return index;
   }
 
-  /// Judges one sound. Null when it landed in the count-in, or when it
-  /// had no pitch and so could only have been meant for a chord.
-  ScoreMark? _judge(double playedAtMs, int? midi) {
+  /// Judges one sound against the song. A sound in the count-in is left
+  /// alone. So is one with no pitch, unless a chord was due.
+  void _judge(double playedAtMs, int? midi) {
     final target = _targetNear(playedAtMs);
     if (target == null) {
-      if (playedAtMs < _judgedFromMs || midi == null) return null;
-      _strayNotes++;
-      return ScoreMark.miss;
+      if (playedAtMs >= _judgedFromMs && midi != null) _strayNotes++;
+      return;
     }
     final moment = target.moment;
-    if (target.passShift == 0 && moment.timeMs < _judgedFromMs) return null;
-    if (midi == null && moment.notes.length < 2) return null;
+    if (target.passShift == 0 && moment.timeMs < _judgedFromMs) return;
+    if (midi == null && moment.notes.length < 2) return;
 
     final marks = switch (target.passShift) {
       -1 => _lastPassMarks,
@@ -498,8 +506,6 @@ class PracticeRun extends ChangeNotifier {
       playedMidi: midi,
       speed: _speed,
     );
-    final timingMs = (target.playedInPassMs - moment.timeMs) / _speed;
-    if (heard != ScoreMark.miss) _lastTimingMs = timingMs;
     final before = marks[moment];
     marks[moment] = keepBetterMark(before, heard);
     final pass = _loopPass + target.passShift;
@@ -507,13 +513,19 @@ class PracticeRun extends ChangeNotifier {
       _strayNotes++;
       if (before == null) _addEffect(moment, ScoreMark.miss, pass);
     } else if (!isPlayed(before)) {
+      final timingMs = (target.playedInPassMs - moment.timeMs) / _speed;
       _streak++;
       _bestStreak = math.max(_bestStreak, _streak);
       _timingSumMs += timingMs;
       _timingCount++;
       _addEffect(moment, heard, pass);
+      // The feedback strip changes here and nowhere else in a run. A
+      // sound that matched no note used to put "Miss" up there, on a
+      // run with no missed notes. An extra sound is not a missed note.
+      _heardMidi = midi;
+      _lastMark = heard;
+      _lastTimingMs = timingMs;
     }
-    return heard;
   }
 
   /// The moment a sound was most likely meant for.

@@ -6,8 +6,8 @@ import '../../music/score_note.dart';
 import '../../theme/riffster_theme.dart';
 import '../room.dart';
 
-/// What the app just heard and how the run is going: the note, how it
-/// was judged, how many in a row, and the share that were on time.
+/// The last note that counted and how the run is going: the note, how
+/// it was judged, how many in a row, and the share that were on time.
 class FeedbackStrip extends StatelessWidget {
   const FeedbackStrip({super.key, required this.run});
 

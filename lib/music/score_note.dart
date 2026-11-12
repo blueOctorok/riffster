@@ -5,9 +5,12 @@ enum ScoreMark { hit, miss, early, late }
 
 /// Close enough to the written time to count as on time.
 ///
-/// Eighty milliseconds is wider than a machine and tighter than a loose
-/// strum. The iRig will tell us if this window needs to move.
-const onTimeMs = 80;
+/// The eye judges by the picture: a note is on time while its circle is
+/// touching the gold line. At the slowest scroll a bass note takes 118 ms
+/// to go from first touch to dead centre, so the window has to be at
+/// least that wide. At 80 ms a pluck on the leading edge read "early".
+/// A test holds the two together.
+const onTimeMs = 120;
 
 /// Still the same beat, but not on time. Farther out is a miss, not a late
 /// note, because that sound belongs to a different moment.
