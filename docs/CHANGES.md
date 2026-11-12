@@ -1,10 +1,16 @@
 # Changes
 
+## 2026-11-12 — The download page looks like a product
+
+The page is no longer one centered column. It now has a headline, a still picture of the play area, three short points, three steps, and the download. The picture is drawn in CSS with the app's own finger colors (cream for an open string, green for the middle finger, gold for the ring). It is not a screenshot and not another product's board.
+
+The shape is borrowed from a practice-app site: one claim, the product under it, then a few cards. The colors, the type, and the words stay Riffster's. Nothing on the page promises a feature the app does not have yet.
+
 ## 2026-11-12 — A download page, in its own folder
 
 `riffster-site/` is a Next.js app for the download page. It does not change the Flutter app. Flutter never reads that folder.
 
-The page is one screen: what Riffster is, and a Windows download. The file is `riffster-site/public/Riffster-windows.zip`, a release build of the whole app (the program plus the files that have to sit beside it). It is about 35 MB. Git ignores the zip, so it is never committed. `.vercelignore` leaves it out of the ignore list on purpose, so a Vercel upload from that folder still carries it.
+The page says what Riffster is, and offers a Windows download. The file is `riffster-site/public/Riffster-windows.zip`, a release build of the whole app (the program plus the files that have to sit beside it). It is about 35 MB. The zip is committed, so a push carries the download. `.vercelignore` leaves it out of the ignore list on purpose, so a Vercel upload from that folder still carries it too.
 
 It is live at https://riffster-site.vercel.app, on the Pace Projects team (the Vercel name for that team is `storm-chain`). `riffster.xyz` is attached to that project, and Namecheap now points the name at Vercel. The GitHub repo is connected, and Vercel's root directory is `riffster-site`, so a push builds the site and leaves the Flutter app alone. The first connection built the repo root, which is the Flutter app, and that deploy failed. The Windows zip is in the site folder, so a push carries the download too.
 

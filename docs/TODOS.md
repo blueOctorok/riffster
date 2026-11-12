@@ -153,8 +153,8 @@ One list of grips: the name, the fret on each string, and the finger on each fre
 
 The domain `riffster.xyz` is already registered at Namecheap. The page lives in `riffster-site/` and does not touch the Flutter app.
 
-- [x] A short Next.js page: what Riffster is, and a download button. Built 2026-11-12. The paid generator will later use a server-only route on this same site. The Anthropic key stays in that server setting and is never sent to the browser or the `.exe`.
-- [x] The Windows build is a zip of the whole release folder, `riffster-site/public/Riffster-windows.zip`, dated 12 November 2026. Git ignores it. It is uploaded with the site, not committed.
+- [x] A short Next.js page: what Riffster is, and a download button. Built 2026-11-12, then rebuilt the same day as a full page (headline, a drawn play area, three points, three steps). The paid generator will later use a server-only route on this same site. The Anthropic key stays in that server setting and is never sent to the browser or the `.exe`.
+- [x] The Windows build is a zip of the whole release folder, `riffster-site/public/Riffster-windows.zip`, dated 12 November 2026. It is committed, so a push carries the download.
 - [x] Deployed to https://riffster-site.vercel.app on Pace Projects, 2026-11-12. The framework has to be Next.js. A new project was guessed as a plain file site, which served the zip and lost the page.
 - [x] Namecheap DNS pointed at Vercel on 2026-11-12. A `@` `216.150.1.1`, A `@` `216.150.16.1`, and CNAME `www` `f9f16c33a1c708b9.vercel-dns-016.com`. `www` redirects to the bare domain. Public DNS already returns the site. A network that still shows the parking page is holding the old answer.
 
