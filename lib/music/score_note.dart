@@ -3,13 +3,25 @@ import '../models/tab_note.dart';
 /// What the playhead decided about one sound from the guitar.
 enum ScoreMark { hit, miss, early, late }
 
-/// Close enough to the written time to count as on time.
-///
-/// The eye judges by the picture: a note is on time while its circle is
-/// touching the gold line. At the slowest scroll a bass note takes 118 ms
-/// to go from first touch to dead centre, so the window has to be at
-/// least that wide. At 80 ms a pluck on the leading edge read "early".
-/// A test holds the two together.
+/// How fussy "on time" is. Medium matches the ring on the playhead: a
+/// note touching the gold line at full speed is a hit. Easy reaches
+/// past that ring. Hard asks for the middle of it.
+enum TimingFeel {
+  easy(label: 'Easy', onTimeMs: 200),
+  medium(label: 'Medium', onTimeMs: 120),
+  hard(label: 'Hard', onTimeMs: 70);
+
+  const TimingFeel({required this.label, required this.onTimeMs});
+
+  final String label;
+
+  /// Close enough to the written time to count as on time, in real
+  /// milliseconds. A test holds Medium against the note on screen.
+  final int onTimeMs;
+}
+
+/// Medium's window. Kept as a number so the picture and the score can
+/// be checked against each other without picking a feel first.
 const onTimeMs = 120;
 
 /// Still the same beat, but not on time. Farther out is a miss, not a late
@@ -31,11 +43,12 @@ ScoreMark scoreMoment({
   required num playedAtMs,
   int? playedMidi,
   double speed = 1,
+  int windowMs = onTimeMs,
 }) {
   if (written.isEmpty) return ScoreMark.miss;
 
   final dueAtMs = written.first.timeMs;
-  final timing = _timing((playedAtMs - dueAtMs) / speed);
+  final timing = _timing((playedAtMs - dueAtMs) / speed, windowMs: windowMs);
   if (timing == ScoreMark.miss) return ScoreMark.miss;
   if (written.length >= 2) return timing;
 
@@ -45,9 +58,9 @@ ScoreMark scoreMoment({
   return timing;
 }
 
-ScoreMark _timing(double deltaMs) {
+ScoreMark _timing(double deltaMs, {required int windowMs}) {
   final distance = deltaMs.abs();
-  if (distance <= onTimeMs) return ScoreMark.hit;
+  if (distance <= windowMs) return ScoreMark.hit;
   if (distance > sameBeatMs) return ScoreMark.miss;
   return deltaMs < 0 ? ScoreMark.early : ScoreMark.late;
 }

@@ -34,7 +34,10 @@ class FeedbackStrip extends StatelessWidget {
                 trailing: mark == null ? null : _MarkPill(mark: mark),
               ),
               const _Gap(),
-              _TimingGauge(timingMs: run.lastTimingMs),
+              _TimingGauge(
+                timingMs: run.lastTimingMs,
+                onTimeMs: run.timingFeel.onTimeMs,
+              ),
               const _Gap(),
               _Figure(
                 caption: 'IN A ROW',
@@ -124,17 +127,21 @@ class _Figure extends StatelessWidget {
 /// for early and right for late, and the lit band in the middle is
 /// the part that counts as on time.
 class _TimingGauge extends StatelessWidget {
-  const _TimingGauge({required this.timingMs});
+  const _TimingGauge({required this.timingMs, required this.onTimeMs});
 
   static const _width = 124.0;
 
   /// Null when the last sound was not played against a note.
   final double? timingMs;
 
+  /// How far off the beat still counts as on time.
+  final int onTimeMs;
+
   @override
   Widget build(BuildContext context) {
     final timing = timingMs;
-    final onTime = timing != null && timing.abs() <= onTimeMs;
+    final window = onTimeMs;
+    final onTime = timing != null && timing.abs() <= window;
     final color = timing == null
         ? RiffColors.faint
         : RiffColors.forMark(onTime ? ScoreMark.hit : ScoreMark.late);
@@ -155,7 +162,7 @@ class _TimingGauge extends StatelessWidget {
                 // The whole bar is one beat's worth each way, so the
                 // on-time band takes the same share of it.
                 _GaugeBar(
-                  width: _width * onTimeMs / sameBeatMs,
+                  width: _width * window / sameBeatMs,
                   color: RiffColors.hit.withValues(alpha: 0.28),
                 ),
                 const SizedBox(

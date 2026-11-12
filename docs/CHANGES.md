@@ -1,5 +1,15 @@
 # Changes
 
+## 2026-11-12 — Easy, Medium, and Hard timing
+
+A real run on the new build was 82% on time, with the misses at zero and the early notes about 88 ms ahead. That is fair, and it still felt strict. Timing now has three settings, saved with the wood and the instrument. They sit at the bottom of the practice screen, next to the woods.
+
+- Easy is 200 ms each side of the beat. A loose pluck still counts.
+- Medium is 120 ms. This is the default, and it is the ring on the playhead: a note touching the gold line at full speed is a hit.
+- Hard is 70 ms. The note has to be near the middle of the ring.
+
+The gold band around the playhead and the green part of the timing gauge both use the chosen window, so the picture and the score stay the same thing. A note past 250 ms is still a miss on every setting, because that sound belongs to a different beat. Changing the setting marks the notes that follow. Notes already marked stay as they were.
+
 ## 2026-11-12 — The download includes the rings
 
 The Windows zip on the site was still the build from before the timing change, so downloading it again showed the old playhead. `riffster-site/public/Riffster-windows.zip` is now the current build: 120 ms on time, the Heard box only reports a note that counted, and a gold ring on each string at the playhead.

@@ -199,7 +199,7 @@ class StagePainter extends CustomPainter {
   /// A note whose center is inside it when you pluck is a hit.
   void _paintOnTimeBand(Canvas canvas) {
     final x = metrics.playheadX;
-    final half = onTimeMs * run.speed / 1000 * metrics.pixelsPerSecond;
+    final half = run.timingFeel.onTimeMs * run.speed / 1000 * metrics.pixelsPerSecond;
     final warmth = _streakWarmth;
     final band = RRect.fromLTRBR(
       x - half,

@@ -135,6 +135,7 @@ class PracticeRun extends ChangeNotifier {
   var _playing = false;
   var _finished = false;
   var _speed = 1.0;
+  var _timingFeel = TimingFeel.medium;
   LoopRange? _loop;
   var _loopPass = 0;
   CountIn? _countIn;
@@ -185,6 +186,9 @@ class PracticeRun extends ChangeNotifier {
   bool get finished => _finished;
 
   double get speed => _speed;
+
+  /// How close to the beat a note has to be to count as on time.
+  TimingFeel get timingFeel => _timingFeel;
   LoopRange? get loop => _loop;
 
   /// How many times the loop has wrapped. 0 on the first trip.
@@ -328,6 +332,12 @@ class PracticeRun extends ChangeNotifier {
   /// How fast the song clock runs. 1 is the written tempo. Timing is
   /// still judged in real milliseconds, so slow practice is not easier
   /// to be "on time" in. It only gives the hands longer to get there.
+  set timingFeel(TimingFeel value) {
+    if (value == _timingFeel) return;
+    _timingFeel = value;
+    _changed();
+  }
+
   set speed(double value) {
     final next = value.clamp(slowestSpeed, 1.0).toDouble();
     if (next == _speed) return;
@@ -505,6 +515,7 @@ class PracticeRun extends ChangeNotifier {
       playedAtMs: target.playedInPassMs,
       playedMidi: midi,
       speed: _speed,
+      windowMs: _timingFeel.onTimeMs,
     );
     final before = marks[moment];
     marks[moment] = keepBetterMark(before, heard);

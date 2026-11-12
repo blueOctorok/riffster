@@ -18,6 +18,7 @@ import '../models/tab_song.dart';
 import '../music/chord_catalog.dart';
 import '../music/chord_lane.dart';
 import '../music/practice_run.dart';
+import '../music/score_note.dart';
 import '../theme/neck_theme.dart';
 import '../theme/riffster_theme.dart';
 import '../widgets/chord_lane_bar.dart';
@@ -109,6 +110,8 @@ class _PracticeScreenState extends State<PracticeScreen>
   void initState() {
     super.initState();
     _songRun = PracticeRun(warmUpFor(_store.instrument ?? Instrument.bass));
+    _songRun.timingFeel = _store.timingFeel;
+    _laneRun.timingFeel = _store.timingFeel;
     _ticker = createTicker(_onTick);
     _songRun.addListener(_syncTicker);
     _laneRun.addListener(_syncTicker);
@@ -464,6 +467,17 @@ class _PracticeScreenState extends State<PracticeScreen>
                     children: [
                       const _FingerLegend(),
                       const Spacer(),
+                      _TimingFeelPicker(
+                        selected: _store.timingFeel,
+                        onSelected: (feel) {
+                          setState(() {
+                            _store.timingFeel = feel;
+                            _songRun.timingFeel = feel;
+                            _laneRun.timingFeel = feel;
+                          });
+                        },
+                      ),
+                      const SizedBox(width: 18),
                       _NeckPicker(
                         selected: _store.neck,
                         onSelected: (neck) {
@@ -615,6 +629,49 @@ class _SongHeading extends StatelessWidget {
           '${song.tempoBpm} bpm · ${song.instrument.label}',
           style: RiffText.label,
         ),
+      ],
+    );
+  }
+}
+
+/// Easy, Medium, or Hard. Medium is the ring on the playhead. The
+/// band around the line grows and shrinks with the choice.
+class _TimingFeelPicker extends StatelessWidget {
+  const _TimingFeelPicker({required this.selected, required this.onSelected});
+
+  final TimingFeel selected;
+  final ValueChanged<TimingFeel> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        const Text('Timing', style: RiffText.label),
+        for (final feel in TimingFeel.values)
+          Padding(
+            padding: const EdgeInsets.only(left: 4),
+            child: TextButton(
+              onPressed: () => onSelected(feel),
+              style: TextButton.styleFrom(
+                foregroundColor: feel == selected
+                    ? RiffColors.cream
+                    : RiffColors.quiet,
+                backgroundColor: feel == selected ? RiffColors.panelLit : null,
+                side: BorderSide(
+                  color: feel == selected
+                      ? RiffColors.gold
+                      : const Color(0x00000000),
+                ),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 8,
+                ),
+                minimumSize: Size.zero,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+              child: Text(feel.label),
+            ),
+          ),
       ],
     );
   }

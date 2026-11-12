@@ -23,7 +23,9 @@ Since 2026-11-11 this section is the order of work. The numbered sections furthe
 - [x] On time widened from 80 to 120 ms after that session, so a note touching the gold line at full speed is on time.
 - [x] The Heard box no longer says "Miss" for a sound that matched no note. It changes only when a note counts.
 - [x] A ring on every string at the playhead, the size of a note when it is due. The line before Play says "play each note as it fills its ring". Approved as an idea on 2026-11-12.
-- [ ] The user tries the 120 ms window and the rings on the bass and says whether it is fair and clear.
+- [x] The user played the 120 ms window. It felt fair and still strict: 82% on time, no misses, about 88 ms early.
+- [x] Easy, Medium, and Hard timing, saved, at the bottom of the practice screen. Medium is 120 ms. Easy is 200. Hard is 70.
+- [ ] The user tries Easy and says whether it feels loose enough.
 - [ ] Decide whether the on-time window should grow when the song is slowed. Today it stays 120 real milliseconds, so at 50% a pluck on the note's leading edge is still early.
 - [ ] Find where the extra sounds come from (likely a ringing string read again an octave up), using recorded clips. Until then, decide whether the end-of-run line about wrong or extra notes should stay.
 - [ ] Smoothness is checked with Flutter's performance overlay while a fast line plays.

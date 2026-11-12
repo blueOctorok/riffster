@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:path_provider/path_provider.dart';
 
 import '../models/instrument.dart';
+import '../music/score_note.dart';
 import '../theme/neck_theme.dart';
 
 /// The few things the app remembers between launches: which instrument
@@ -31,6 +32,9 @@ class SettingsStore {
           (neck) => neck.name == saved['neck'],
           orElse: () => ebonyNeck,
         );
+        store._timingFeel =
+            TimingFeel.values.asNameMap()[saved['timingFeel']] ??
+            TimingFeel.medium;
         final delays = saved['inputDelaysMs'];
         if (delays is Map) {
           for (final MapEntry(:key, :value) in delays.entries) {
@@ -49,6 +53,7 @@ class SettingsStore {
   final File? _file;
   Instrument? _instrument;
   NeckTheme _neck = ebonyNeck;
+  TimingFeel _timingFeel = TimingFeel.medium;
   final _inputDelaysMs = <String, double>{};
 
   /// Null until the first launch's question has been answered.
@@ -66,6 +71,13 @@ class SettingsStore {
     _save();
   }
 
+  TimingFeel get timingFeel => _timingFeel;
+
+  set timingFeel(TimingFeel value) {
+    _timingFeel = value;
+    _save();
+  }
+
   /// How far behind the string an input was measured to be, or null
   /// when the timing check has not been run on it. [route] names the
   /// input and the way Windows opened it.
@@ -80,6 +92,7 @@ class SettingsStore {
     final text = jsonEncode({
       'instrument': _instrument?.name,
       'neck': _neck.name,
+      'timingFeel': _timingFeel.name,
       'inputDelaysMs': _inputDelaysMs,
     });
     // Nothing waits for the write. If it fails, the choice is asked

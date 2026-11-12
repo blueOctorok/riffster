@@ -112,6 +112,23 @@ void main() {
     expect(run.strayNotes, 1);
   });
 
+  test('easy counts a loose note as on time, and hard does not', () {
+    final easy = PracticeRun(_fourNotes())
+      ..timingFeel = TimingFeel.easy
+      ..play();
+    // 160 ms before the note: inside Easy, outside Hard and Medium.
+    _wait(easy, 2000 - 160);
+    easy.pluck(60, latencyMs: 0);
+    expect(easy.lastMark, ScoreMark.hit);
+
+    final hard = PracticeRun(_fourNotes())
+      ..timingFeel = TimingFeel.hard
+      ..play();
+    _wait(hard, 2000 - 160);
+    hard.pluck(60, latencyMs: 0);
+    expect(hard.lastMark, ScoreMark.early);
+  });
+
   test('while paused, the strip names a sound and gives no verdict', () {
     final run = PracticeRun(_fourNotes());
 
