@@ -1,5 +1,31 @@
 # Changes
 
+## 2026-11-12 — The site is a marketing page, with the app on film
+
+The site now sells the app. It has the app's own finish: the smoked-glass panels, the gold with a lit top edge, the lamp-lit room, the two typefaces.
+
+What is on the page, top to bottom:
+
+- A headline and the download, over a clip of the whole app counting in, playing the bass warm-up, and showing its result card. The window leans back and stands up as you scroll.
+- Scoring: a close clip of the playhead showing a hit, an early, a late, and a miss, with the timing gauge moving beside it.
+- Bass first: a neck across the whole page whose four strings can be plucked with the pointer. They swing and die away, and pluck themselves quietly when left alone. There is no sound.
+- The three woods: buttons for ebony, rosewood, and maple that swap the board under the same run without the phrase starting over.
+- Practice tools: the count-in, speed, bar loop, Guitar Pro files, the timing check, and the result card, with the five keys under them.
+- Guitar: a clip of chord changes on rosewood, and the first row of the chord book.
+- Platforms: Windows is out now. iPhone and Android are marked "In the works", with no date. The phones show the Windows play area, and the page says so.
+- The download again, with the three first-run steps.
+
+The clips are the real app. `tool/site_clips_test.dart` runs the app's own widgets one frame at a time, 60 frames a second, with the notes played by a script, and pipes each frame to ffmpeg. So the film cannot drift from the app: film it again and it matches. Nothing was plugged in. The script tells the run "this note was played, 12 ms early", which is the same call the listener makes.
+
+Sections fade up as they are scrolled to, and a clip plays only while it is on screen. Someone who has asked their device for less movement gets stills with a play button, still strings, and no fades.
+
+`riffster-site/public/media` holds six clips and their stills, about 7.5 MB together.
+
+Not done, and worth knowing:
+
+- The clips show notes being scored. That part of the app has still not been heard on a real bass (see Stage 2 below).
+- The phone layouts do not exist yet. The page promises iPhone and Android without a date.
+
 ## 2026-11-12 — The download page looks like a product
 
 The page is no longer one centered column. It now has a headline, a still picture of the play area, three short points, three steps, and the download. The picture is drawn in CSS with the app's own finger colors (cream for an open string, green for the middle finger, gold for the ring). It is not a screenshot and not another product's board.

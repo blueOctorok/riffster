@@ -1,5 +1,5 @@
-import { DownloadPage } from "@/components/download-page";
+import { LandingPage } from "@/components/landing-page";
 
 export default function Home() {
-  return <DownloadPage />;
+  return <LandingPage />;
 }

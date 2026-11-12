@@ -1,16 +1,248 @@
 @import "tailwindcss";
 
-/* The same workshop colors as the Windows app. */
+/* The same workshop colors as the Windows app (lib/theme/riffster_theme.dart). */
 @theme {
   --color-room: #1a1814;
   --color-room-deep: #100e0b;
   --color-panel: #241f1a;
+  --color-panel-lit: #2e2821;
   --color-line: #3a342c;
+  --color-line-strong: #4a433a;
   --color-cream: #f3eee6;
+  /* Paragraphs. The app has no long text, so it has no tone for it. */
+  --color-soft: #b9afa1;
   --color-quiet: #8a8175;
   --color-faint: #5c564e;
   --color-gold: #e4b15a;
+  --color-gold-lit: #f6d28b;
+  --color-gold-deep: #b07e2c;
   --color-ink: #1a1814;
+
+  /* A hit, a miss, and the four fretting fingers. */
+  --color-hit: #3ddc6e;
+  --color-miss: #e85d75;
+  --color-finger-index: #3b82f6;
+  --color-finger-middle: #3ddc6e;
+  --color-finger-ring: #f0c43a;
+  --color-finger-pinky: #e85d75;
+
   --font-sans: var(--font-instrument-sans), ui-sans-serif, system-ui, sans-serif;
   --font-serif: var(--font-instrument-serif), ui-serif, Georgia, serif;
+
+  /* Fast at first, then easing into place. The app's own curve. */
+  --ease-settle: cubic-bezier(0.22, 1, 0.36, 1);
+
+  --animate-rise: rise 1s var(--ease-settle) both;
+  --animate-sheen: sheen 5s ease-in-out infinite;
+  --animate-gauge: gauge 7s ease-in-out infinite;
+  --animate-count: count 2.4s linear infinite;
+
+  @keyframes rise {
+    from {
+      opacity: 0;
+      translate: 0 20px;
+      filter: blur(6px);
+    }
+  }
+
+  /* A band of light crosses, then waits most of the cycle. */
+  @keyframes sheen {
+    0%,
+    55% {
+      translate: -160% 0;
+    }
+    100% {
+      translate: 360% 0;
+    }
+  }
+
+  /* The timing dot: mostly on the beat, once a little late. */
+  @keyframes gauge {
+    0%,
+    100% {
+      left: 50%;
+    }
+    14% {
+      left: 46%;
+    }
+    28% {
+      left: 54%;
+    }
+    42% {
+      left: 49%;
+    }
+    56% {
+      left: 71%;
+    }
+    70% {
+      left: 52%;
+    }
+    84% {
+      left: 44%;
+    }
+  }
+
+  /* One dot of the count-in: lit for its own beat, dim for the other three. */
+  @keyframes count {
+    0%,
+    24% {
+      opacity: 1;
+      scale: 1.35;
+    }
+    25%,
+    100% {
+      opacity: 0.25;
+      scale: 1;
+    }
+  }
+}
+
+/*
+ * The app's smoked-glass panel. A border cannot be a gradient, so there are
+ * two backgrounds: the fill stops at the padding edge, and a light-to-dark
+ * gradient runs on under the 1px transparent border. That sliver is the
+ * hairline, bright on top where the room's light lands.
+ */
+@utility glass {
+  border: 1px solid transparent;
+  background:
+    linear-gradient(#342d27, var(--color-panel) 45%, #1f1b16) padding-box,
+    linear-gradient(#5a5046, #39322b 30%, #16130f) border-box;
+  box-shadow: 0 10px 24px rgb(0 0 0 / 0.4);
+}
+
+/* Gold lettering with a lit top edge, like the app's big numbers. */
+@utility text-gold-foil {
+  background: linear-gradient(
+    180deg,
+    var(--color-gold-lit),
+    var(--color-gold) 55%,
+    var(--color-gold-deep)
+  );
+  background-clip: text;
+  color: transparent;
+}
+
+/* The lit gold control: the app's play button, as a link. */
+@utility button-gold {
+  position: relative;
+  overflow: hidden;
+  color: var(--color-ink);
+  background: linear-gradient(
+    180deg,
+    var(--color-gold-lit),
+    var(--color-gold) 48%,
+    #d19c43
+  );
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.6),
+    inset 0 -1px 0 rgb(0 0 0 / 0.2),
+    0 10px 32px rgb(228 177 90 / 0.3);
+  transition:
+    box-shadow 0.22s var(--ease-settle),
+    translate 0.12s var(--ease-settle);
+
+  &::after {
+    content: "";
+    position: absolute;
+    inset-block: 0;
+    left: 0;
+    width: 36%;
+    background: linear-gradient(
+      100deg,
+      transparent,
+      rgb(255 255 255 / 0.6),
+      transparent
+    );
+    translate: -160% 0;
+    animation: var(--animate-sheen);
+  }
+
+  &:hover {
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 0.7),
+      inset 0 -1px 0 rgb(0 0 0 / 0.2),
+      0 14px 44px rgb(228 177 90 / 0.5);
+  }
+
+  &:active {
+    translate: 0 1px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    &::after {
+      animation: none;
+    }
+  }
+}
+
+/* A section that drifts up into place the first time it is scrolled to. */
+@utility reveal {
+  opacity: 0;
+  translate: 0 28px;
+  transition:
+    opacity 0.9s var(--ease-settle),
+    translate 0.9s var(--ease-settle);
+
+  &[data-shown] {
+    opacity: 1;
+    translate: 0 0;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    opacity: 1;
+    translate: none;
+    transition: none;
+  }
+}
+
+/*
+ * The app window leans back at the top of the page and stands up as the
+ * page scrolls. The animation's clock is the scroll position and not time:
+ * 0px scrolled is the first keyframe, 520px is the last. A browser without
+ * scroll-driven animation skips the whole block and shows it upright.
+ */
+@utility stand-up-on-scroll {
+  @supports (animation-timeline: scroll()) {
+    @media (prefers-reduced-motion: no-preference) {
+      transform-origin: 50% 100%;
+      animation: stand-up linear both;
+      animation-timeline: scroll(root);
+      animation-range: 0px 520px;
+    }
+  }
+}
+
+@keyframes stand-up {
+  from {
+    transform: rotateX(16deg) scale(0.94);
+  }
+  to {
+    transform: none;
+  }
+}
+
+/* The ebony board, with a few streaks of grain. */
+@utility board-ebony {
+  background:
+    repeating-linear-gradient(
+      0deg,
+      rgb(74 59 46 / 0.22) 0 1px,
+      transparent 1px 7px,
+      rgb(74 59 46 / 0.12) 7px 8px,
+      transparent 8px 19px
+    ),
+    linear-gradient(180deg, #2b2520, #201b17 50%, #171310);
+}
+
+/* The bone nut at the head of the board. */
+@utility nut-bone {
+  background: linear-gradient(
+    90deg,
+    #b9b09e,
+    #f3eee6 35%,
+    #e9e2d3 70%,
+    #8f8778
+  );
+  box-shadow: 6px 0 14px rgb(0 0 0 / 0.5);
 }

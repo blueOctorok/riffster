@@ -11,17 +11,22 @@ const sans = Instrument_Sans({
 const serif = Instrument_Serif({
   subsets: ["latin"],
   weight: "400",
+  style: ["normal", "italic"],
   variable: "--font-instrument-serif",
 });
 
 export const metadata: Metadata = {
-  title: "Riffster",
-  description: "A Windows practice app for bass. Download the current build.",
+  title: "Riffster — play the line, the app hears it",
+  description:
+    "A practice app for a real bass. Notes slide along the neck, you play them, and each one is marked for pitch and timing. Out now for Windows, with iPhone and Android on the way.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="en" className={`${sans.variable} ${serif.variable} h-full`}>
+    <html
+      lang="en"
+      className={`${sans.variable} ${serif.variable} h-full motion-safe:scroll-smooth`}
+    >
       <body className="flex min-h-full flex-col bg-room font-sans text-cream antialiased">
         {children}
       </body>

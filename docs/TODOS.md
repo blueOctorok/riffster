@@ -153,7 +153,13 @@ One list of grips: the name, the fret on each string, and the finger on each fre
 
 The domain `riffster.xyz` is already registered at Namecheap. The page lives in `riffster-site/` and does not touch the Flutter app.
 
-- [x] A short Next.js page: what Riffster is, and a download button. Built 2026-11-12, then rebuilt the same day as a full page (headline, a drawn play area, three points, three steps). The paid generator will later use a server-only route on this same site. The Anthropic key stays in that server setting and is never sent to the browser or the `.exe`.
+- [x] A short Next.js page: what Riffster is, and a download button. Built 2026-11-12. The paid generator will later use a server-only route on this same site. The Anthropic key stays in that server setting and is never sent to the browser or the `.exe`.
+- [x] Rebuilt the same day as a marketing page: clips of the real app, strings you can pluck, the three woods, the practice tools, guitar, and iPhone and Android marked as in the works.
+- [x] `tool/site_clips_test.dart` films the clips from the app's own widgets. Film them again whenever the app's look changes.
+- [ ] Film the clips again once the listener has been heard on a real bass, if the look of a hit changes.
+- [ ] Decide whether plucking the strings on the page should make a sound.
+- [ ] Decide whether the page should take an email address for "tell me when the phone app is out". It needs somewhere to keep the addresses.
+- [ ] A picture for link previews (the image a link shows when it is pasted into a message).
 - [x] The Windows build is a zip of the whole release folder, `riffster-site/public/Riffster-windows.zip`, dated 12 November 2026. It is committed, so a push carries the download.
 - [x] Deployed to https://riffster-site.vercel.app on Pace Projects, 2026-11-12. The framework has to be Next.js. A new project was guessed as a plain file site, which served the zip and lost the page.
 - [x] Namecheap DNS pointed at Vercel on 2026-11-12. A `@` `216.150.1.1`, A `@` `216.150.16.1`, and CNAME `www` `f9f16c33a1c708b9.vercel-dns-016.com`. `www` redirects to the bare domain. Public DNS already returns the site. A network that still shows the parking page is holding the old answer.
