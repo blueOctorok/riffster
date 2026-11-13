@@ -35,7 +35,7 @@ class _TimingCheckState extends State<_TimingCheck>
     with SingleTickerProviderStateMixin {
   late final Ticker _ticker;
 
-  /// The practice screen's listener, handed back when this closes.
+  /// The shell's listener, handed back when this closes.
   void Function(int? midi, double agoMs)? _screenListener;
 
   var _step = _Step.ready;

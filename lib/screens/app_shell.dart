@@ -24,33 +24,37 @@ import '../widgets/chord_lane_bar.dart';
 import '../widgets/chord_palette.dart';
 import '../widgets/chord_picker.dart';
 import '../widgets/finger_colors.dart';
-import '../widgets/instrument_switch.dart';
 import '../widgets/practice/feedback_strip.dart';
-import '../widgets/practice/input_bar.dart';
 import '../widgets/practice/run_summary_card.dart';
 import '../widgets/practice/timing_check_dialog.dart';
 import '../widgets/practice/transport_dock.dart';
 import '../widgets/room.dart';
+import '../widgets/shell/app_area.dart';
+import '../widgets/shell/input_panel.dart';
+import '../widgets/shell/input_status.dart';
+import '../widgets/shell/side_rail.dart';
 import '../widgets/stage/stage_view.dart';
-import '../widgets/wordmark.dart';
+import 'home_area.dart';
 
-/// The practice screen. It scrolls the loaded song, or the chords you
-/// have dropped into the lane.
+/// The frame around every area of the app: the rail down the left, the
+/// area you are in beside it, and the input panel that slides over it.
 ///
-/// This screen owns the things with a lifetime: the two runs, the
-/// frame timer, and the audio input. It hands them to widgets that
-/// listen for themselves, so a frame of animation or a jump of the
-/// level meter never rebuilds the screen.
-class PracticeScreen extends StatefulWidget {
-  const PracticeScreen({super.key, required this.store});
+/// The shell owns the things with a lifetime: the two runs, the frame
+/// timer, and the audio input. They outlive any one area, so a song
+/// keeps its place while you look at Home, and the input stays open
+/// wherever you are. The shell hands them to widgets that listen for
+/// themselves, so a frame of animation or a jump of the level meter
+/// never rebuilds the whole window.
+class AppShell extends StatefulWidget {
+  const AppShell({super.key, required this.store});
 
   final SettingsStore store;
 
   @override
-  State<PracticeScreen> createState() => _PracticeScreenState();
+  State<AppShell> createState() => _AppShellState();
 }
 
-class _PracticeScreenState extends State<PracticeScreen>
+class _AppShellState extends State<AppShell>
     with SingleTickerProviderStateMixin {
   final _reader = GuitarProReader();
   final _ear = GuitarEar();
@@ -76,7 +80,8 @@ class _PracticeScreenState extends State<PracticeScreen>
   /// Null outside a debug build.
   final _clips = ClipRecorder.forThisBuild();
 
-  var _chords = false;
+  var _area = AppArea.home;
+  var _inputOpen = false;
 
   /// Which page of the chord book is open. Remembered while the window
   /// is open, so leaving and coming back does not dump you on Open.
@@ -94,6 +99,9 @@ class _PracticeScreenState extends State<PracticeScreen>
   HeardInput? _input;
   var _looking = false;
   var _earFailed = false;
+
+  /// True while the open input is sending no sound at all.
+  var _inputSilent = false;
   var _speakerOn = false;
 
   /// Full is the monitor level that sounded right. Lower turns only the
@@ -101,10 +109,30 @@ class _PracticeScreenState extends State<PracticeScreen>
   var _volume = 1.0;
   final _level = ValueNotifier(0.0);
 
-  PracticeRun get _run => _chords ? _laneRun : _songRun;
+  /// The pitch that is ringing, for the tuner. Null when nothing is.
+  final _tone = ValueNotifier<double?>(null);
+
+  /// Build is the chord book, and it plays the lane. Every other area
+  /// plays the song.
+  bool get _building => _area == AppArea.build;
+  PracticeRun get _run => _building ? _laneRun : _songRun;
   SettingsStore get _store => widget.store;
 
-  bool get _canPlay => !_opening && _run.timeline.moments.isNotEmpty;
+  /// Home has no stage, so nothing there can be played or looped.
+  bool get _onStage => _area != AppArea.home;
+
+  bool get _canPlay {
+    return _onStage && !_opening && _run.timeline.moments.isNotEmpty;
+  }
+
+  InputStatus get _inputStatus {
+    return InputStatus(
+      input: _input,
+      failed: _earFailed,
+      silent: _inputSilent,
+      looking: _looking,
+    );
+  }
 
   @override
   void initState() {
@@ -119,7 +147,11 @@ class _PracticeScreenState extends State<PracticeScreen>
     _ear.onPluck = _onPluck;
     _ear.onSound = _clips?.add;
     _ear.onLevel = (level) => _level.value = level;
+    _ear.onTone = (hertz) => _tone.value = hertz;
     _ear.onReady = _onReady;
+    _ear.onSilent = (silent) {
+      if (mounted) setState(() => _inputSilent = silent);
+    };
     _ear.start().catchError((Object _) {
       if (mounted) setState(() => _earFailed = true);
     });
@@ -138,6 +170,7 @@ class _PracticeScreenState extends State<PracticeScreen>
     _songRun.dispose();
     _laneRun.dispose();
     _level.dispose();
+    _tone.dispose();
     _reader.dispose();
     _ear.dispose();
     super.dispose();
@@ -257,17 +290,29 @@ class _PracticeScreenState extends State<PracticeScreen>
     }
   }
 
-  /// Puts [song] on the stage and leaves the chord book.
-  void _showSong(TabSong song) {
-    _laneRun.pause();
+  /// Moves to [area]. Whatever was playing is paused where it stands,
+  /// and is still there when you come back.
+  void _go(AppArea area) {
+    if (area == _area) return;
+    _run.pause();
+    setState(() {
+      _area = area;
+      _inputOpen = false;
+    });
+    // [_run] is now the run of the new area.
+    _syncTicker();
+    _ear.instrument = _run.song.instrument;
+  }
+
+  /// Puts [song] on the stage. It does not change which area is open.
+  void _loadSong(TabSong song) {
     _songRun.load(song);
     setState(() {
-      _chords = false;
       _loopFromBar = 0;
       _loopToBar = null;
     });
     _syncTicker();
-    _ear.instrument = song.instrument;
+    _ear.instrument = _run.song.instrument;
   }
 
   Future<void> _open() async {
@@ -275,7 +320,10 @@ class _PracticeScreenState extends State<PracticeScreen>
     setState(() => _opening = true);
     try {
       final song = await openGuitarPro(context, _reader);
-      if (mounted && song != null) _showSong(song);
+      if (mounted && song != null) {
+        _loadSong(song);
+        _go(AppArea.songs);
+      }
     } catch (error) {
       if (!mounted) return;
       final message = switch (error) {
@@ -283,9 +331,8 @@ class _PracticeScreenState extends State<PracticeScreen>
         StateError(:final message) => message,
         _ => 'Could not read that file.',
       };
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(message)));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(message)));
     } finally {
       if (mounted) setState(() => _opening = false);
     }
@@ -293,16 +340,10 @@ class _PracticeScreenState extends State<PracticeScreen>
 
   void _chooseInstrument(Instrument instrument) {
     _store.instrument = instrument;
-    _showSong(warmUpFor(instrument));
-  }
-
-  /// Swaps between the song and the chord book. Whichever is left
-  /// behind is paused where it stands.
-  void _setChords(bool chords) {
-    _run.pause();
-    setState(() => _chords = chords);
-    _syncTicker();
-    _ear.instrument = _run.song.instrument;
+    _loadSong(warmUpFor(instrument));
+    // The chord book is guitar shapes, so a switch to bass while it is
+    // open has nowhere to stay.
+    if (!_area.readyFor(instrument)) _go(AppArea.songs);
   }
 
   void _toggleLoop() {
@@ -393,92 +434,196 @@ class _PracticeScreenState extends State<PracticeScreen>
 
   @override
   Widget build(BuildContext context) {
-    final run = _run;
-    final song = run.song;
-    final bars = song.bars;
+    final status = _inputStatus;
     return Scaffold(
       body: Room(
         child: CallbackShortcuts(
-          bindings: _keys,
+          // Home has no stage, so there is nothing for the keys to do.
+          bindings: _onStage ? _keys : const {},
           child: Focus(
             autofocus: true,
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(28, 16, 28, 14),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _TopBar(
-                    instrument: _songRun.song.instrument,
-                    onInstrument: _chooseInstrument,
-                    opening: _opening,
-                    onOpen: _open,
-                    chords: _chords,
-                    onChords: _setChords,
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
+            child: Row(
+              children: [
+                SideRail(
+                  area: _area,
+                  onArea: _go,
+                  instrument: _songRun.song.instrument,
+                  onInstrument: _chooseInstrument,
+                  status: status,
+                  level: _level,
+                  inputOpen: _inputOpen,
+                  onInput: () => setState(() => _inputOpen = !_inputOpen),
+                  clipStarted: _clips?.started,
+                ),
+                Expanded(
+                  child: Stack(
                     children: [
-                      Expanded(child: _SongHeading(song: song)),
-                      const SizedBox(width: 20),
-                      FeedbackStrip(run: run),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  if (_chords) ..._chordBook(),
-                  _stage(run),
-                  const SizedBox(height: 16),
-                  TransportDock(
-                    run: run,
-                    enabled: _canPlay,
-                    loopFromBar: _loopFromBar,
-                    loopToBar: _loopToBar ?? bars.length - 1,
-                    onLoop: _toggleLoop,
-                    onLoopBars: _setLoopBars,
-                  ),
-                  const SizedBox(height: 10),
-                  InputBar(
-                    input: _input,
-                    failed: _earFailed,
-                    looking: _looking,
-                    level: _level,
-                    volume: _volume,
-                    speakerOn: _speakerOn,
-                    onSource: (source) {
-                      _reopenInput(() => _ear.choose(source));
-                    },
-                    onLookAgain: () => _reopenInput(_ear.restart),
-                    onVolume: (volume) {
-                      setState(() => _volume = volume);
-                      _ear.volume = volume;
-                    },
-                    onSpeaker: (on) {
-                      setState(() => _speakerOn = on);
-                      _ear.speakerOn = on;
-                    },
-                    measuredDelayMs: _measuredDelayMs,
-                    onTimingCheck: _checkTiming,
-                    clipRecording: _clips?.recording ?? false,
-                    clipStarted: _clips?.started,
-                    onClip: _clips == null ? null : _toggleClip,
-                  ),
-                  const SizedBox(height: 6),
-                  Row(
-                    children: [
-                      const _FingerLegend(),
-                      const Spacer(),
-                      _NeckPicker(
-                        selected: _store.neck,
-                        onSelected: (neck) {
-                          setState(() => _store.neck = neck);
+                      // The area leaving and the area arriving are both
+                      // on screen for a moment, one fading out as the
+                      // other fades in. The key is how the switcher
+                      // knows a different area has been asked for.
+                      AnimatedSwitcher(
+                        duration: RiffMotion.settle,
+                        transitionBuilder: (child, animation) {
+                          return _slideIn(
+                            child,
+                            animation,
+                            const Offset(0, 0.02),
+                          );
                         },
+                        layoutBuilder: (current, previous) => Stack(
+                          fit: StackFit.expand,
+                          children: [...previous, ?current],
+                        ),
+                        child: KeyedSubtree(
+                          key: ValueKey(_area),
+                          child: _onStage ? _stagePage() : _home(),
+                        ),
+                      ),
+                      if (_inputOpen)
+                        // A click anywhere off the panel puts it away.
+                        Positioned.fill(
+                          child: GestureDetector(
+                            behavior: HitTestBehavior.opaque,
+                            onTap: () => setState(() => _inputOpen = false),
+                          ),
+                        ),
+                      Positioned(
+                        left: 12,
+                        top: 12,
+                        bottom: 12,
+                        width: InputPanel.width,
+                        child: Align(
+                          alignment: Alignment.bottomLeft,
+                          child: AnimatedSwitcher(
+                            duration: RiffMotion.slide,
+                            transitionBuilder: (child, animation) {
+                              return _slideIn(
+                                child,
+                                animation,
+                                const Offset(-0.08, 0),
+                              );
+                            },
+                            child: _inputOpen
+                                ? _inputPanel(status)
+                                : const SizedBox.shrink(),
+                          ),
+                        ),
                       ),
                     ],
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  /// Fades [child] in while it slides the last little way into place
+  /// from [from], which is a fraction of the child's own size.
+  static Widget _slideIn(
+    Widget child,
+    Animation<double> animation,
+    Offset from,
+  ) {
+    final eased = CurvedAnimation(parent: animation, curve: RiffMotion.ease);
+    return FadeTransition(
+      opacity: eased,
+      child: SlideTransition(
+        position: Tween(begin: from, end: Offset.zero).animate(eased),
+        child: child,
+      ),
+    );
+  }
+
+  Widget _home() {
+    return HomeArea(
+      song: _songRun.song,
+      onStage: () => _go(AppArea.songs),
+      onOpenFile: _opening ? null : _open,
+      onArea: _go,
+    );
+  }
+
+  Widget _inputPanel(InputStatus status) {
+    // The panel is taller than a small window, so it can scroll.
+    return SingleChildScrollView(
+      child: InputPanel(
+        status: status,
+        instrument: _run.song.instrument,
+        level: _level,
+        tone: _tone,
+        volume: _volume,
+        speakerOn: _speakerOn,
+        onSource: (source) => _reopenInput(() => _ear.choose(source)),
+        onLookAgain: () => _reopenInput(_ear.restart),
+        onVolume: (volume) {
+          setState(() => _volume = volume);
+          _ear.volume = volume;
+        },
+        onSpeaker: (on) {
+          setState(() => _speakerOn = on);
+          _ear.speakerOn = on;
+        },
+        measuredDelayMs: _measuredDelayMs,
+        onTimingCheck: _checkTiming,
+        onClose: () => setState(() => _inputOpen = false),
+        clipStarted: _clips?.started,
+        onClip: _clips == null ? null : _toggleClip,
+      ),
+    );
+  }
+
+  /// The stage and everything around it. Songs and Build share it:
+  /// Build adds the chord book above the stage and plays the lane.
+  Widget _stagePage() {
+    final run = _run;
+    final song = run.song;
+    return SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(28, 22, 28, 14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(child: _SongHeading(song: song)),
+              if (!_building) ...[
+                const SizedBox(width: 20),
+                OutlinedButton(
+                  onPressed: _opening ? null : _open,
+                  child: Text(_opening ? 'Opening…' : 'Open'),
+                ),
+              ],
+              const SizedBox(width: 20),
+              FeedbackStrip(run: run),
+            ],
+          ),
+          const SizedBox(height: 16),
+          if (_building) ..._chordBook(),
+          _stage(run),
+          const SizedBox(height: 16),
+          TransportDock(
+            run: run,
+            enabled: _canPlay,
+            loopFromBar: _loopFromBar,
+            loopToBar: _loopToBar ?? song.bars.length - 1,
+            onLoop: _toggleLoop,
+            onLoopBars: _setLoopBars,
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              const _FingerLegend(),
+              const Spacer(),
+              _NeckPicker(
+                selected: _store.neck,
+                onSelected: (neck) => setState(() => _store.neck = neck),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -519,13 +664,13 @@ class _PracticeScreenState extends State<PracticeScreen>
       children: [
         DragTarget<LaneDrag>(
           onAcceptWithDetails: (details) {
-            if (_chords) _acceptLane(details.data, _lane.length);
+            if (_building) _acceptLane(details.data, _lane.length);
           },
           builder: (context, candidate, _) => StageView(
             key: const Key('staff'),
             run: run,
             neck: _store.neck,
-            dropHighlighted: _chords && candidate.isNotEmpty,
+            dropHighlighted: _building && candidate.isNotEmpty,
           ),
         ),
         Positioned(
@@ -534,63 +679,6 @@ class _PracticeScreenState extends State<PracticeScreen>
           right: 28,
           child: Center(child: RunSummaryCard(run: run)),
         ),
-      ],
-    );
-  }
-}
-
-/// The wordmark, the instrument, and the buttons that change what is
-/// on the stage.
-class _TopBar extends StatelessWidget {
-  const _TopBar({
-    required this.instrument,
-    required this.onInstrument,
-    required this.opening,
-    required this.onOpen,
-    required this.chords,
-    required this.onChords,
-  });
-
-  final Instrument instrument;
-  final ValueChanged<Instrument> onInstrument;
-  final bool opening;
-  final VoidCallback onOpen;
-  final bool chords;
-  final ValueChanged<bool> onChords;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        const Wordmark(),
-        const SizedBox(width: 22),
-        InstrumentSwitch(selected: instrument, onSelected: onInstrument),
-        const Spacer(),
-        OutlinedButton(
-          onPressed: opening ? null : onOpen,
-          child: Text(opening ? 'Opening…' : 'Open'),
-        ),
-        // The chord book is guitar shapes. A bass gets its own way to
-        // build a line in a later stage.
-        if (instrument == Instrument.guitar) ...[
-          const SizedBox(width: 8),
-          chords
-              ? FilledButton(
-                  onPressed: () => onChords(true),
-                  child: const Text('Chords'),
-                )
-              : OutlinedButton(
-                  onPressed: opening ? null : () => onChords(true),
-                  child: const Text('Chords'),
-                ),
-        ],
-        if (chords) ...[
-          const SizedBox(width: 8),
-          OutlinedButton(
-            onPressed: () => onChords(false),
-            child: const Text('Song'),
-          ),
-        ],
       ],
     );
   }

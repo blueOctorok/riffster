@@ -32,6 +32,7 @@ import 'package:riffster/theme/neck_theme.dart';
 import 'package:riffster/theme/riffster_theme.dart';
 import 'package:riffster/widgets/chord_palette.dart';
 import 'package:riffster/widgets/practice/transport_dock.dart';
+import 'package:riffster/widgets/shell/app_area.dart';
 import 'package:riffster/widgets/stage/stage_metrics.dart';
 import 'package:riffster/widgets/stage/stage_view.dart';
 
@@ -285,11 +286,13 @@ Future<void> _filmStage(
   run.dispose();
 }
 
-/// Opens the whole app on [instrument] and returns the run on its stage.
+/// Opens the whole app on [instrument], goes to [area], and returns
+/// the run on its stage.
 Future<PracticeRun> _openApp(
   WidgetTester tester,
-  Instrument instrument,
-) async {
+  Instrument instrument, {
+  AppArea area = AppArea.songs,
+}) async {
   // The screen makes a recorder as soon as it is built. No recording
   // plugin exists in a test, so its one call is answered with nothing.
   tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
@@ -304,7 +307,9 @@ Future<PracticeRun> _openApp(
       child: RiffsterApp(key: UniqueKey(), store: store),
     ),
   );
-  await tester.pump();
+  // The app opens on Home.
+  await tester.tap(find.byKey(Key('area-${area.name}')));
+  await tester.pumpAndSettle();
   return tester.widget<StageView>(find.byType(StageView)).run;
 }
 
@@ -314,8 +319,8 @@ void main() {
   testWidgets('the whole app, one good run', (tester) async {
     await tester.runAsync(loadAppFonts);
     final run = await _openApp(tester, Instrument.bass);
-    // The clip stops under the play controls. The row below them says
-    // "Looking for an input…", which is true of a test and would only
+    // The clip stops under the play controls. Below them the chip on
+    // the rail says "Looking…", which is true of a test and would only
     // puzzle someone watching.
     final dock = tester.getRect(find.byType(TransportDock));
     final film = _Film(
@@ -404,9 +409,7 @@ void main() {
 
   testWidgets('the first row of the chord book, as a still', (tester) async {
     await tester.runAsync(loadAppFonts);
-    await _openApp(tester, Instrument.guitar);
-    await tester.tap(find.text('Chords'));
-    await tester.pump();
+    await _openApp(tester, Instrument.guitar, area: AppArea.build);
     final book = tester.getRect(find.byType(ChordPalette));
     // The whole width of the book, and as tall as its first card.
     final firstCard = tester.getRect(

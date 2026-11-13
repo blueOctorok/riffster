@@ -1,0 +1,4 @@
+# The notes played, in order. Fix this line if you played something else.
+# The D string was about 60 cents flat on this take. What sounded on it is
+# nearest to the note a semitone under the one fretted, and is written that way.
+E1 G1 A1 B1 C#2 D#2 C#2 B1 A1 G1 E1

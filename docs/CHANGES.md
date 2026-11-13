@@ -1,5 +1,64 @@
 # Changes
 
+## 2026-11-13 — Stage 3: the shell
+
+The app now has a frame around it. A rail runs down the left with the six areas, the instrument switch, and a chip that shows what the app is listening to. The app opens on Home.
+
+- **The rail.** Home, Songs, Practice, Build, Create, Library. Home and Songs open. Build opens on guitar, where it is the chord book. Practice, Create, and Library are listed, dim, and marked SOON, and Build is the same on bass. Which areas open is one function, `AppArea.readyFor` in `lib/widgets/shell/app_area.dart`.
+- **Home.** The song on the stage with a gold play button, and four doors: Songs opens a Guitar Pro file, Build opens the chord book on guitar, Practice and Create are marked SOON. A door lifts and its edge turns gold under the pointer. The chooser's two cards did that already, and both now use one widget, `lib/widgets/lift_card.dart`.
+- **Songs and Build.** Songs is the stage as it was. Build is the chord book above the stage, as it was. The Chords and Song buttons are gone, because the rail does that job. Open sits beside the song's title. Each keeps its own run, so leaving a song for Home or Build and coming back finds it where it was. Whatever is playing is paused when you leave.
+- **The input panel.** The row of input controls that sat under the play controls is gone. Pressing the chip slides a panel out with the same controls: Cable, iRig, Mic, the status line, the level, Look again, the timing check, the debug clip recorder, the volume, and the speaker switch. A click anywhere else puts it away. The chip turns rose and says "No sound" or "No input" when something needs doing, and counts the seconds while a clip records.
+- **The tuner.** In the input panel. Play an open string and it names the string, a needle shows how far off it is, and the words say "12 cents flat", "In tune" (within 5 cents), or "Over a semitone flat". It measures against the instrument's open strings and not against the nearest note name. A D string that has slipped 60 cents is nearer to C sharp than to D, and a tuner that says "C sharp, a little sharp" sends you the wrong way. The pitch comes from the listener that already scores notes: `PluckDetector.ringingHertz`.
+- **Moving about.** An area fades in and rises a few pixels as the last one fades out. The panel slides in from the rail.
+- **The chord book** keeps its layout and every behaviour. Its text now uses the named styles in the theme file.
+
+The stage screen has more room. The top bar and the input row are gone, so nothing on Songs is near the bottom edge.
+
+Space, R, L, minus, and plus do nothing on Home, which has no stage.
+
+Checked: 128 tests pass and the analyzer is clean. New tests cover the rail, Home, leaving a playing song, switching to bass inside the chord book, the panel opening and closing, the tuner's words, and the pitch the tuner reads. The debug window was opened on the real cable: Home, Songs, and the panel all came up, and the cable opened in exclusive mode. Pictures are in `build/stage_previews/`.
+
+**The tuner's first dial was wrong, fixed the same night.** The user tuned E, A, and G with it and said the needle did not move on D. The dial only reached 50 cents each way, the D string was 57 flat, and a needle with no sound rested at the left stop. So a D that was being heard correctly put the needle exactly where it sits when nothing is heard. The listener was not at fault: run over the open-strings clip, it gives the tuner the D's pitch for the whole time the string rings, and a made-up tone sliding across the border between C sharp and D keeps a reading the whole way. The dial now reaches a semitone each way, and with no sound there is no needle at all, so a needle anywhere means a string is heard.
+
+Not checked: the new dial on the real D string.
+
+The Windows zip was rebuilt the same night, dated 13 November 2026, so the download has the shell, the tuner, and the silent-input fix. The clips on the marketing page still show the old top bar. `tool/site_clips_test.dart` was changed to find its way through the rail and has not been run.
+
+## 2026-11-13 — Four bass clips, and a D string that was flat
+
+The four takes asked for in Stage 2 are in `test/clips/`. In order: the open strings, the 12th fret on each, the warm-up played slowly, and the warm-up played fast with the notes touching.
+
+**Corrected the same day.** This entry first said the listener named the D string a semitone flat. That was wrong. The pitch in the clips was measured a second way, outside the app, and the D string itself was 57 to 61 cents flat on every take: the open D rang at 71.04 Hz where a D in tune is 73.42. The E, A, and G strings were within 13 cents. An E at the 12th fret of the E string read E2, and the same E on the D string read D#2, which is the string and not the listener. A note that far off sits almost on the border between two names, so it flickered between them.
+
+The answer files now say what sounded. A note on the D string is written as the note a semitone under the one fretted, and each file says so in a comment. The recorder had also copied the warm-up into the first two files, which were open strings and the 12th fret.
+
+Scored against those answers, and that score is the bar in `test/clips/best.json`. A later change to the listener may lower a number and may not raise one.
+
+- Open strings: all four found, plus one extra, the flat D flickering to the name above.
+- 12th fret: all four found, plus three extras. The D string flickered again, and the E was counted twice.
+- Slow warm-up: all 11 notes found, plus 2 extras. One is an F#1 heard just before the G1.
+- Fast warm-up: all 11 found, plus 18 extras. Ringing notes were counted again, and the last open E was counted several times over.
+
+So the listener's real faults in these clips are a ringing note counted again and the 12th-fret E counted twice. The D string needs tuning up, and the tuner in the input panel will show it. Takes recorded after that would be a steadier test, because these four have notes sitting on a border.
+
+The download does not have these clips. They live in the project, for the listener test.
+
+## 2026-11-12 — An input that sends no sound is noticed
+
+A whole warm-up was played on the bass and the card said "Nothing was heard on this run". The clip saved from that take was 44 bytes: a header and no sound.
+
+What was measured in that window: the cable was open, the status line had no "· exclusive", and the listener had received zero samples since launch. Windows listed Riffster's hold on the cable as idle, and no other program had it open by then. Pressing Look again opened the cable in exclusive mode and sound flowed at once.
+
+So the fast path was refused when the window opened, the fallback opened and stayed silent, and the app never tried again. It only reopened an input when the list of devices changed. What refused the fast path at launch is not known. Another program holding the cable at that moment would do it, and so would a second Riffster window. Why the fallback gave no sound is not known either.
+
+The fix is in `lib/audio/silence_watch.dart`. An open input sends chunks of sound all the time, even in a quiet room, so none at all means it is dead. The app already looks at the devices every two seconds. Two looks in a row with no chunks now close the input and open it again, and that repeats until sound arrives. While it lasts the status line says "No sound is arriving. Close any other app using this input."
+
+Checked: the rule has its own tests, and the status line has one. A fresh debug window opened the cable in exclusive mode and was left alone, with sound arriving without a gap for the 20 seconds it was watched. The silent case itself has not happened again, so the reopen has not been seen working on the real cable.
+
+The empty clip was deleted. The earlier clip that did not match its answer is in `build/held-clips/`, outside the tests.
+
+The zip was rebuilt on 2026-11-13, so the download has this fix.
+
 ## 2026-11-12 — The red X waits until the note has gone
 
 A wrong sound near an upcoming note was marked on that note at once, so the rose X flashed on as the circle met the line. Playing the right note a moment later wiped it, which felt strict. A wrong sound is now only an extra note. The X is drawn when the note's window closes with nothing having saved it, which is after the circle has left the line.

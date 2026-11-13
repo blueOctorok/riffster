@@ -5,24 +5,45 @@ import 'package:riffster/app.dart';
 import 'package:riffster/data/settings_store.dart';
 import 'package:riffster/models/instrument.dart';
 import 'package:riffster/theme/neck_theme.dart';
+import 'package:riffster/widgets/shell/app_area.dart';
 import 'package:riffster/widgets/stage/stage_view.dart';
 
 import 'support/app_fonts.dart';
 
 /// Opens the app in a window of [size], as a player who has already
-/// answered the first-launch question with [instrument].
+/// answered the first-launch question with [instrument], and goes to
+/// [area]. Most tests are about the stage, so that is Songs unless
+/// the test says otherwise.
 Future<SettingsStore> _open(
   WidgetTester tester, {
   Instrument? instrument = Instrument.guitar,
+  AppArea area = AppArea.songs,
   Size size = const Size(1264, 681),
 }) async {
+  // The test font's letters are wide squares. In those, the wordmark
+  // alone is wider than the rail, so the app is drawn in its own type.
+  await tester.runAsync(loadAppFonts);
   tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.resetPhysicalSize);
   addTearDown(tester.view.resetDevicePixelRatio);
   final store = SettingsStore.inMemory(instrument: instrument);
   await tester.pumpWidget(RiffsterApp(store: store));
+  // The app opens on Home, or on the chooser when no instrument is set.
+  if (instrument != null && area != AppArea.home) await _go(tester, area);
   return store;
+}
+
+/// Presses [area] on the rail and waits for the move to finish.
+Future<void> _go(WidgetTester tester, AppArea area) async {
+  await tester.tap(find.byKey(Key('area-${area.name}')));
+  await tester.pumpAndSettle();
+}
+
+/// Whether the rail lets you press [area].
+bool _canGo(WidgetTester tester, AppArea area) {
+  final button = find.byKey(Key('area-${area.name}'));
+  return tester.widget<TextButton>(button).onPressed != null;
 }
 
 StageView _stage(WidgetTester tester) {
@@ -41,14 +62,20 @@ void main() {
     await tester.tap(find.byKey(const Key('choose-bass')));
     await tester.pumpAndSettle();
 
+    // Home, with the bass warm-up waiting on the stage.
     expect(store.instrument, Instrument.bass);
+    expect(find.text('What are we playing today?'), findsOneWidget);
     expect(find.text('Warm-up'), findsOneWidget);
     expect(find.text('100 bpm · Bass'), findsOneWidget);
-    expect(_stage(tester).run.song.instrument, Instrument.bass);
-    // The chord book is guitar shapes, so a bass does not offer it.
-    expect(find.text('Chords'), findsNothing);
+    expect(find.byKey(const Key('staff')), findsNothing);
+    // The chord book is guitar shapes, so a bass cannot open Build.
+    expect(_canGo(tester, AppArea.build), isFalse);
 
-    // The keyboard works straight away, with nothing clicked first.
+    await tester.tap(find.byKey(const Key('home-stage')));
+    await tester.pumpAndSettle();
+    expect(_stage(tester).run.song.instrument, Instrument.bass);
+
+    // The keyboard works as soon as the stage is up.
     await tester.sendKeyEvent(LogicalKeyboardKey.space);
     await tester.pump();
     expect(_stage(tester).run.playing, isTrue);
@@ -56,16 +83,19 @@ void main() {
     await tester.pump();
   });
 
-  testWidgets('the whole song screen fits the window without scrolling', (
+  testWidgets('Home and the song screen fit the window without scrolling', (
     tester,
   ) async {
-    // Measured with the real typefaces. The test font's letters are
-    // wide squares, which wrap text the app shows on one line.
-    await tester.runAsync(loadAppFonts);
-    await _open(tester, instrument: Instrument.bass);
+    await _open(tester, instrument: Instrument.bass, area: AppArea.home);
 
-    final scroll = tester.state<ScrollableState>(find.byType(Scrollable).first);
-    expect(scroll.position.maxScrollExtent, 0);
+    double scrollRoom() {
+      final area = find.byType(Scrollable).first;
+      return tester.state<ScrollableState>(area).position.maxScrollExtent;
+    }
+
+    expect(scrollRoom(), 0);
+    await _go(tester, AppArea.songs);
+    expect(scrollRoom(), 0);
     // A test pretends to be a phone unless told otherwise, and a phone
     // gets taller buttons than a desktop. This one has to measure what
     // Windows will really show.
@@ -217,9 +247,7 @@ void main() {
   testWidgets('chords lays every grip out and drops one on the staff', (
     tester,
   ) async {
-    await _open(tester);
-    await tester.tap(find.widgetWithText(OutlinedButton, 'Chords'));
-    await tester.pump();
+    await _open(tester, area: AppArea.build);
 
     expect(find.text('Changes'), findsOneWidget);
     expect(find.text('Next'), findsNothing);
@@ -269,10 +297,67 @@ void main() {
     expect(find.byKey(const Key('chord-block-open-G')), findsNothing);
 
     // Back to the song, which kept its place.
-    await tester.ensureVisible(find.text('Song'));
-    await tester.tap(find.text('Song'));
-    await tester.pump();
+    await _go(tester, AppArea.songs);
     expect(find.text('Warm-up'), findsOneWidget);
+  });
+
+  testWidgets('the rail lights where you are and dims what is not built', (
+    tester,
+  ) async {
+    await _open(tester, area: AppArea.home);
+
+    expect(_canGo(tester, AppArea.songs), isTrue);
+    expect(_canGo(tester, AppArea.build), isTrue);
+    for (final area in [AppArea.practice, AppArea.create, AppArea.library]) {
+      expect(_canGo(tester, area), isFalse, reason: area.label);
+    }
+
+    // Home has no stage, so Space has nothing to start.
+    await tester.sendKeyEvent(LogicalKeyboardKey.space);
+    await _go(tester, AppArea.songs);
+    expect(_stage(tester).run.playing, isFalse);
+
+    // A song that is playing is paused when you walk away from it.
+    final run = _stage(tester).run;
+    await tester.sendKeyEvent(LogicalKeyboardKey.space);
+    await tester.pump();
+    expect(run.playing, isTrue);
+    await _go(tester, AppArea.home);
+    expect(run.playing, isFalse);
+    expect(find.byKey(const Key('staff')), findsNothing);
+  });
+
+  testWidgets('switching to bass in the chord book leaves for Songs', (
+    tester,
+  ) async {
+    await _open(tester, area: AppArea.build);
+    expect(find.byKey(const Key('chord-lane')), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('instrument-bass')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('chord-lane')), findsNothing);
+    expect(find.text('100 bpm · Bass'), findsOneWidget);
+    expect(_canGo(tester, AppArea.build), isFalse);
+  });
+
+  testWidgets('the input chip opens the panel, and a click away closes it', (
+    tester,
+  ) async {
+    await _open(tester);
+    expect(find.byKey(const Key('tuner-words')), findsNothing);
+
+    await tester.tap(find.byKey(const Key('input-chip')));
+    await tester.pumpAndSettle();
+    expect(find.text('Play an open string'), findsOneWidget);
+    expect(find.byKey(const Key('input-cable')), findsOneWidget);
+
+    // Far from the panel, over the stage.
+    await tester.tapAt(const Offset(1100, 300));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('tuner-words')), findsNothing);
+    // The click only closed the panel. It did not reach what was under it.
+    expect(_stage(tester).run.playing, isFalse);
   });
 
   testWidgets('maple turns the staff into a light neck and is remembered', (
@@ -281,9 +366,6 @@ void main() {
     final store = await _open(tester);
     expect(_stage(tester).neck, ebonyNeck);
 
-    // The test font is wider than the real one, which can push the
-    // bottom row just under the edge of the window.
-    await tester.ensureVisible(find.text('Maple'));
     await tester.tap(find.text('Maple'));
     await tester.pump();
 

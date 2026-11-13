@@ -7,6 +7,12 @@ const _gold = RiffColors.gold;
 const _ink = RiffColors.quiet;
 const _chip = RiffColors.panel;
 
+/// A chord's name on its chip in the lane.
+final _chordName = RiffText.body.copyWith(
+  color: _gold,
+  fontWeight: FontWeight.w600,
+);
+
 /// The chords dropped so far, in the order they will be played.
 class ChordLaneBar extends StatelessWidget {
   const ChordLaneBar({
@@ -40,7 +46,8 @@ class ChordLaneBar extends StatelessWidget {
                 return _LaneChip(
                   index: index,
                   placed: lane[index],
-                  stays: previous != null &&
+                  stays:
+                      previous != null &&
                       fingerStays(previous.block.grip, lane[index].block.grip),
                   onDrop: onDrop,
                   onDuration: (ms) => onDuration(index, ms),
@@ -78,7 +85,7 @@ class _DropGap extends StatelessWidget {
             borderRadius: BorderRadius.circular(8),
             border: Border.all(color: hot ? _gold : RiffColors.line),
           ),
-          child: Text(hint, style: const TextStyle(color: _ink, fontSize: 13)),
+          child: Text(hint, style: RiffText.label),
         );
       },
     );
@@ -131,11 +138,7 @@ class _LaneChip extends StatelessWidget {
                     color: Colors.transparent,
                     child: Text(
                       placed.block.label,
-                      style: const TextStyle(
-                        color: _gold,
-                        fontWeight: FontWeight.w600,
-                        fontSize: 16,
-                      ),
+                      style: _chordName.copyWith(fontSize: 16),
                     ),
                   ),
                   childWhenDragging: Opacity(
@@ -143,28 +146,22 @@ class _LaneChip extends StatelessWidget {
                     child: Text(
                       placed.block.label,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: _gold,
-                        fontWeight: FontWeight.w600,
-                      ),
+                      style: _chordName,
                     ),
                   ),
                   child: Text(
                     placed.block.label,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: _gold,
-                      fontWeight: FontWeight.w600,
-                    ),
+                    style: _chordName,
                   ),
                 ),
               ),
               if (stays)
-                const Padding(
-                  padding: EdgeInsets.only(right: 4),
+                Padding(
+                  padding: const EdgeInsets.only(right: 4),
                   child: Text(
                     'stays',
-                    style: TextStyle(color: _gold, fontSize: 11),
+                    style: RiffText.label.copyWith(color: _gold, fontSize: 11),
                   ),
                 ),
               GestureDetector(

@@ -76,10 +76,15 @@ double? periodIn(
 /// The pitch, in hertz, of a MIDI note. [midi] may sit between notes.
 double hertzOfMidi(num midi) => 440 * math.pow(2, (midi - 69) / 12).toDouble();
 
+/// Where a pitch of [hertz] sits on the MIDI scale. The answer can fall
+/// between two notes: 37.4 is a C#2 that is 40 cents sharp.
+double midiOfHertz(double hertz) {
+  return 69 + 12 * (math.log(hertz / 440) / math.ln2);
+}
+
 /// The MIDI note of a wave that repeats every [period] samples.
 int midiOfPeriod(double period, double sampleRate) {
-  final hertz = sampleRate / period;
-  return (69 + 12 * (math.log(hertz / 440) / math.ln2)).round();
+  return midiOfHertz(sampleRate / period).round();
 }
 
 /// Note name for the heard pitch, such as E2.

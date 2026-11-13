@@ -176,4 +176,28 @@ void main() {
 
     expect(small.map((pluck) => '$pluck'), large.map((pluck) => '$pluck'));
   });
+
+  test('the ringing pitch is known far finer than its note name', () {
+    final detector = PluckDetector(
+      sampleRate: _rate,
+      instrument: Instrument.bass,
+    );
+    expect(detector.ringingHertz, isNull);
+
+    // An open D that has slipped 30 cents flat. Its name is still D2.
+    final flatD = hertzOfMidi(38 - 0.3);
+    final turn = 2 * math.pi * flatD / _rate;
+    detector.hear(_silence(0.1));
+    final plucks = detector.hear([
+      for (var n = 0; n < _samples(0.5); n++)
+        0.25 * (math.sin(turn * n) + 0.5 * math.sin(2 * turn * n)),
+    ]);
+
+    expect(_names(plucks), ['D2']);
+    // A fifth of a hertz down here is about five cents.
+    expect(detector.ringingHertz, closeTo(flatD, 0.2));
+
+    detector.hear(_silence(0.5));
+    expect(detector.ringingHertz, isNull);
+  });
 }

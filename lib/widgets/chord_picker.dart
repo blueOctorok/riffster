@@ -45,7 +45,7 @@ class ChordPicker extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 6),
-        Text(group.blurb, style: const TextStyle(color: _quiet, fontSize: 13)),
+        Text(group.blurb, style: RiffText.label),
         if (group == ChordGroup.barre) ...[
           const SizedBox(height: 8),
           _barreRows(shown),

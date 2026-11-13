@@ -26,6 +26,10 @@ import 'package:riffster/music/timing_check.dart';
 import 'package:riffster/theme/neck_theme.dart';
 import 'package:riffster/theme/riffster_theme.dart';
 import 'package:riffster/widgets/practice/timing_check_dialog.dart';
+import 'package:riffster/widgets/room.dart';
+import 'package:riffster/widgets/shell/app_area.dart';
+import 'package:riffster/widgets/shell/input_panel.dart';
+import 'package:riffster/widgets/shell/input_status.dart';
 import 'package:riffster/widgets/stage/stage_metrics.dart';
 import 'package:riffster/widgets/stage/stage_view.dart';
 
@@ -153,10 +157,13 @@ Future<void> _stageShot(
   run.dispose();
 }
 
-/// The whole app, as a player who chose [instrument] would see it.
+/// The whole app, as a player who chose [instrument] would see it
+/// after going to [area]. Gives back the run on the stage, when the
+/// area has one.
 Future<PracticeRun?> _openApp(
   WidgetTester tester, {
   Instrument? instrument,
+  AppArea area = AppArea.songs,
   NeckTheme neck = ebonyNeck,
 }) async {
   await tester.binding.setSurfaceSize(_window);
@@ -170,8 +177,66 @@ Future<PracticeRun?> _openApp(
     ),
   );
   await tester.pump();
-  if (instrument == null) return null;
+  // With no instrument the chooser is up, and the app itself opens on
+  // Home.
+  if (instrument == null || area == AppArea.home) return null;
+  await tester.tap(find.byKey(Key('area-${area.name}')));
+  await tester.pumpAndSettle();
   return tester.widget<StageView>(find.byType(StageView)).run;
+}
+
+/// The input panel alone, in the room, hearing [hertz] on a cable. No
+/// cable is plugged in here, so what it hears is made up.
+Future<void> _panelShot(WidgetTester tester, String name, double? hertz) async {
+  await tester.binding.setSurfaceSize(const Size(InputPanel.width + 48, 640));
+  const cable = HeardInput(
+    name: 'Rocksmith USB Guitar Adapter',
+    isGuitar: true,
+    speakerReady: true,
+    inputs: [],
+    cablePresent: true,
+    irigPresent: false,
+    micPresent: true,
+    active: EarSource.cable,
+    exclusive: true,
+    latencyMs: 20,
+  );
+  await tester.pumpWidget(
+    RepaintBoundary(
+      key: _shot,
+      child: MaterialApp(
+        key: UniqueKey(),
+        debugShowCheckedModeBanner: false,
+        theme: riffsterTheme(),
+        home: Scaffold(
+          body: Room(
+            child: Center(
+              child: SizedBox(
+                width: InputPanel.width,
+                child: InputPanel(
+                  status: const InputStatus(input: cable),
+                  instrument: Instrument.bass,
+                  level: ValueNotifier(hertz == null ? 0 : 0.09),
+                  tone: ValueNotifier(hertz),
+                  volume: 0.8,
+                  speakerOn: true,
+                  onSource: (_) {},
+                  onLookAgain: () {},
+                  onVolume: (_) {},
+                  onSpeaker: (_) {},
+                  measuredDelayMs: 27,
+                  onTimingCheck: () {},
+                  onClose: () {},
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    ),
+  );
+  await tester.pumpAndSettle();
+  await _snap(tester, name);
 }
 
 void main() {
@@ -251,6 +316,20 @@ void main() {
     await _openApp(tester);
     await _snap(tester, 'screen_first_launch');
 
+    await _openApp(tester, instrument: Instrument.bass, area: AppArea.home);
+    await _snap(tester, 'screen_home_bass');
+
+    await _openApp(tester, instrument: Instrument.guitar, area: AppArea.home);
+    // The pointer over a door, to show it lifted.
+    final pointer = await tester.createGesture(
+      kind: ui.PointerDeviceKind.mouse,
+    );
+    await pointer.addPointer(location: Offset.zero);
+    await pointer.moveTo(tester.getCenter(find.byKey(const Key('door-build'))));
+    await tester.pumpAndSettle();
+    await _snap(tester, 'screen_home_guitar_hover');
+    await pointer.removePointer();
+
     await _openApp(tester, instrument: Instrument.bass);
     await _snap(tester, 'screen_bass_rest');
 
@@ -281,10 +360,19 @@ void main() {
     await tester.pump();
     await _snap(tester, 'screen_guitar_loop_maple');
 
-    await _openApp(tester, instrument: Instrument.guitar);
-    await tester.tap(find.text('Chords'));
-    await tester.pump();
+    await _openApp(tester, instrument: Instrument.guitar, area: AppArea.build);
     await _snap(tester, 'screen_guitar_chords');
+
+    await _openApp(tester, instrument: Instrument.bass);
+    await tester.tap(find.byKey(const Key('input-chip')));
+    await tester.pumpAndSettle();
+    await _snap(tester, 'screen_input_panel');
+
+    // The panel with a cable in: at rest, a D string that has slipped,
+    // and a G in tune.
+    await _panelShot(tester, 'input_panel_rest', null);
+    await _panelShot(tester, 'input_panel_flat', 71.04);
+    await _panelShot(tester, 'input_panel_in_tune', 98.1);
 
     // The timing check, six measured clicks in. No cable is plugged
     // in here, so the dialog is opened directly and the notes are

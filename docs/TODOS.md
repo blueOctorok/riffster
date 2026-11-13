@@ -8,7 +8,7 @@ Since 2026-11-11 this section is the order of work. The numbered sections furthe
 
 ### Stage 1: The play area
 
-- [x] Bass or Guitar chooser on first launch, saved, with a switch at the top. A bass warm-up on four strings.
+- [x] Bass or Guitar chooser on first launch, saved, with a switch at the top (on the rail since Stage 3). A bass warm-up on four strings.
 - [x] One theme file for colors, type, and timings. Instrument Serif and Instrument Sans ship in the app.
 - [x] The stage is its own widget. Only the notes layer repaints each frame.
 - [x] The song rests one bar before its first note, and Play counts one bar in. Pause, the slider, and a loop each have a rule for the count.
@@ -37,10 +37,14 @@ Built on 2026-11-11. The boxes still open need a bass plugged in.
 - [x] New pluck detector: range from the instrument (bass about 35 to 420 Hz), pluck time split from pitch, a pitch change with no silence is a new note.
 - [x] Tests with made-up waves: low E reads E1 under a louder overtone, two back-to-back notes give two plucks, pluck time within 10 ms.
 - [x] A debug-only Record clip button saves what the cable heard, with the notes on the stage as its written answer. A test scores the detector against every clip and fails if one is heard worse than before.
-- [ ] Record the clips on the user's bass: each open string, fret 12 on each, a slow line, and a fast line with no gaps. Fix each `.txt` if what was played differs from the stage. The Record clip button needs the app started with `flutter run -d windows` from the project and an open input. While a clip is open the status line counts the seconds in rose and says restart does not stop it. The order asked for on 2026-11-12, one clip each: (1) open E A D G, answer `E1 A1 D2 G2`; (2) fret 12 on E A D G, answer `E2 A2 D3 G3`; (3) the warm-up as written; (4) the warm-up fast with no gaps. Clips 1 and 2 are saved with the warm-up as their answer, so their `.txt` files must be rewritten.
+- [x] Record the clips on the user's bass, 2026-11-13, one clip each: open strings `E1 A1 D2 G2` (`bass-1794546404`), 12th fret `E2 A2 D3 G3` (`bass-1794546420`), the warm-up slowly (`bass-1794546454`), the warm-up fast (`bass-1794546493`). The first two answers were rewritten, because the recorder had copied the warm-up off the stage. The D string was about 60 cents flat on all four takes, measured outside the app, so its notes are written in the answers as what sounded: `C#2`, `C#3`, and `D#2`. Scores kept in `test/clips/best.json`: 1, 3, 2, and 18 mistakes. What is left is the listener's: a ringing note on the fast line is counted again, and the 12th-fret E is counted twice.
+- [ ] Tune the D string up with the tuner in the input panel. After that, four fresh takes would test the listener better than these, which have notes sitting on the border between two names. Not urgent.
+- [x] An open input that sends no sound is reopened every four seconds until it does, and the status line says no sound is arriving. Found on 2026-11-12 when a whole take was recorded with nothing heard.
+- [ ] Find what refused exclusive mode when that window opened, and why the shared fallback then gave no sound. Neither is known.
+- [x] The download zip was rebuilt on 2026-11-13 with the silent-input fix and Stage 3. The page says 13 November 2026, 15 MB.
 - [ ] Tune the two detector thresholds (`_floor`, `_jump` in `pluck_detector.dart`) against those clips.
 - [ ] The detector runs off the screen thread. Left on the main thread on purpose: it measured 1 to 20 ms of work per second of sound. Move it only if the performance overlay shows dropped frames. Waiting on the user's OK for this change of plan.
-- [ ] On the bass: open E, A, D, G and fret 12 on each show the right name.
+- [ ] On the bass, once the D string is tuned: open E, A, D, G and fret 12 on each show the right name. In the clips E, A, and G already do.
 - [x] Timing check: eight notes along with a click, and the measured delay is stored per input. Scoring uses it in place of the guessed 20, 35, and 50 ms. The countdown gets the same click.
 - [ ] The click is heard on the exclusive path and on the shared path. So far it has only compiled.
 - [ ] The timing check is run on the real bass, and a note played on the click then reads "On the beat".
@@ -49,9 +53,18 @@ Built on 2026-11-11. The boxes still open need a bass plugged in.
 
 ### Stage 3: The shell
 
-- [ ] Side rail: Home, Songs, Practice, Build, Create, Library, with the instrument switch and an input chip.
-- [ ] Input panel: Cable, iRig, Mic, Look again, the timing check, and a tuner needle.
-- [ ] Every area uses the Stage 1 look. The chord book keeps its layout and behaviour.
+Built on 2026-11-13. Not yet approved by the user.
+
+- [x] Side rail: Home, Songs, Practice, Build, Create, Library, with the instrument switch and an input chip. Areas that are not built are dim and marked SOON.
+- [x] Home: the song on the stage, and four doors that lift under the pointer.
+- [x] Input panel: Cable, iRig, Mic, Look again, the timing check, the volume and speaker switch, and a tuner needle. It slides out from the chip and a click away closes it.
+- [x] The tuner measures against the open strings, so a string far out still reads as that string.
+- [x] Every area uses the Stage 1 look. The chord book keeps its layout and behaviour. Moving between areas is a short fade and rise.
+- [ ] The user looks at the shell and approves it, or says what to change.
+- [x] The tuner was used on the real bass, 2026-11-13: E, A, and G tuned fine. On D the needle did not move, because the dial stopped at 50 cents and the string was 57 flat. The dial now reaches a semitone each way and has no needle when nothing is heard.
+- [ ] The user tunes the D string with the wider dial and says whether the needle moves.
+- [ ] Decide whether the areas that are not built should show on the rail as SOON, or stay hidden until they are. Showing them follows the plan. Hiding them is one line.
+- [ ] Days in a row and minutes played go on Home in Stage 5. Until then the lower half of Home is empty.
 
 ### Stage 4: Songs, melody on bass, Library
 
@@ -165,13 +178,13 @@ The domain `riffster.xyz` is already registered at Namecheap. The page lives in 
 - [x] Rebuilt the same day as a marketing page: clips of the real app, strings you can pluck, the three woods, the practice tools, guitar, and iPhone and Android marked as in the works.
 - [x] Shelved that page the same day. The homepage is a short "still in development" note with the download. The marketing page is at `/preview` and is not linked.
 - [ ] Put the marketing page back on the homepage when the product is ready. Change `src/app/page.tsx` to render `LandingPage`.
-- [x] `tool/site_clips_test.dart` films the clips from the app's own widgets. Film them again whenever the app's look changes.
-- [ ] Film the clips again before the marketing page goes back up. They were filmed with the 80 ms rule, and one note in them reads late at 118 ms, which is now on time.
+- [x] `tool/site_clips_test.dart` films the clips from the app's own widgets. Film them again whenever the app's look changes. It was changed for the rail on 2026-11-13 and has not been run since.
+- [ ] Film the clips again before the marketing page goes back up. They were filmed with the 80 ms rule, and one note in them reads late at 118 ms, which is now on time. They also show the top bar that the rail replaced.
 - [ ] Decide whether plucking the strings on the page should make a sound.
 - [ ] Decide whether the page should take an email address for "tell me when the phone app is out". It needs somewhere to keep the addresses.
 - [ ] A picture for link previews (the image a link shows when it is pasted into a message). The dog mark is ready to go on it.
 - [x] The dog mark is the Windows icon, the browser tab icon, and sits with the name in the app and on the site (2026-11-12). `tool/brand/make_brand.py` rebuilds every icon file from the two drawings beside it.
-- [x] The Windows build is a zip of the whole release folder, `riffster-site/public/Riffster-windows.zip`, dated 12 November 2026. Repacked the same day with the 120 ms timing and the rings, then the timing settings, then the dog icon. An app change is not in the download until this zip is rebuilt and pushed.
+- [x] The Windows build is a zip of the whole release folder, `riffster-site/public/Riffster-windows.zip`, dated 13 November 2026. Repacked on the 12th with the 120 ms timing and the rings, then the timing settings, then the dog icon, and on the 13th with the shell, the tuner, and the silent-input fix. An app change is not in the download until this zip is rebuilt and pushed.
 - [x] Deployed to https://riffster-site.vercel.app on Pace Projects, 2026-11-12. The framework has to be Next.js. A new project was guessed as a plain file site, which served the zip and lost the page.
 - [x] Namecheap DNS pointed at Vercel on 2026-11-12. A `@` `216.150.1.1`, A `@` `216.150.16.1`, and CNAME `www` `f9f16c33a1c708b9.vercel-dns-016.com`. `www` redirects to the bare domain. Public DNS already returns the site. A network that still shows the parking page is holding the old answer.
 

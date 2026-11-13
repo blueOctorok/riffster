@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 
 import 'data/settings_store.dart';
+import 'screens/app_shell.dart';
 import 'screens/instrument_chooser.dart';
-import 'screens/practice_screen.dart';
 import 'theme/riffster_theme.dart';
 
 class RiffsterApp extends StatefulWidget {
@@ -23,7 +23,7 @@ class _RiffsterAppState extends State<RiffsterApp> {
       debugShowCheckedModeBanner: false,
       theme: riffsterTheme(),
       // The very first launch asks which instrument. After that the
-      // answer is on disk and the app opens straight onto the stage.
+      // answer is on disk and the app opens on Home.
       // A cross-fade shows a little of whatever is behind the two
       // screens while both are half see-through. With nothing there,
       // that is black, and the fade dips dark in the middle. The room
@@ -38,7 +38,7 @@ class _RiffsterAppState extends State<RiffsterApp> {
                     setState(() => store.instrument = instrument);
                   },
                 )
-              : PracticeScreen(store: store),
+              : AppShell(store: store),
         ),
       ),
     );

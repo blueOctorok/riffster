@@ -10,6 +10,7 @@ import '../models/instrument.dart';
 import 'exclusive_guitar.dart';
 import 'pluck_detector.dart';
 import 'sample_clock.dart';
+import 'silence_watch.dart';
 import 'wav.dart';
 
 /// How long after the pluck the buffer reaches Dart.
@@ -56,7 +57,7 @@ EarSource? listeningChoice({
   return null;
 }
 
-/// What the practice screen shows once the input and the speaker are open.
+/// What the input panel shows once the input and the speaker are open.
 class HeardInput {
   const HeardInput({
     required this.name,
@@ -130,8 +131,17 @@ class GuitarEar {
   /// Loudness of the latest chunk, from 0 to about 1. Drives the level meter.
   void Function(double level)? onLevel;
 
+  /// The pitch of the note that is ringing, in hertz, after every chunk.
+  /// Null when no single note is. Drives the tuner.
+  void Function(double? hertz)? onTone;
+
   /// Called once the devices are known, whether or not the speaker opened.
   void Function(HeardInput status)? onReady;
+
+  /// Called with true when the open input turns out to send no sound,
+  /// and with false when sound arrives again.
+  void Function(bool silent)? onSilent;
+  final _silence = SilenceWatch();
 
   final _recorder = AudioRecorder();
   StreamSubscription<Uint8List>? _subscription;
@@ -267,9 +277,13 @@ class GuitarEar {
   }
 
   /// Asks Windows again. A cable plugged in after launch takes the seat
-  /// from the room mic. A switch the player turned off stays off.
+  /// from the room mic. A switch the player turned off stays off. An
+  /// open input that has gone silent is closed and opened again.
   Future<void> lookForGuitar() async {
     if (_closed || _opening) return;
+    final wasSilent = _silence.silent;
+    final reopen = _silence.look(open: _started && _openSource != null);
+    if (_silence.silent != wasSilent) onSilent?.call(_silence.silent);
     try {
       final devices = await _recorder.listInputDevices();
       if (_closed || _opening) return;
@@ -281,7 +295,7 @@ class GuitarEar {
         suppressed: _suppressed,
         preferred: _preferred,
       );
-      if (next == _openSource && _started) return;
+      if (next == _openSource && _started && !reopen) return;
       await restart();
     } catch (_) {}
   }
@@ -573,6 +587,7 @@ class GuitarEar {
 
   void _onBytes(Uint8List bytes) {
     if (_closed) return;
+    _silence.heard();
     final nowMicros = _watch.elapsedMicroseconds;
     _play(bytes);
     onSound?.call(bytes);
@@ -589,14 +604,12 @@ class GuitarEar {
     onLevel?.call(math.sqrt(sum / samples.length));
 
     final plucks = _detector.hear(samples);
-    _clock.arrived(
-      samplesHeard: _detector.samplesHeard,
-      atMicros: nowMicros,
-    );
+    _clock.arrived(samplesHeard: _detector.samplesHeard, atMicros: nowMicros);
     for (final pluck in plucks) {
       final agoMicros = nowMicros - _clock.microsAt(pluck.atSample);
       onPluck?.call(pluck.midi, agoMicros / 1000);
     }
+    onTone?.call(_detector.ringingHertz);
   }
 
   void _play(Uint8List bytes) {
@@ -618,7 +631,6 @@ class GuitarEar {
       // A full buffer must not stop pitch detection.
     }
   }
-
 }
 
 /// The iRig speaker, when Windows started that side and not the guitar input.

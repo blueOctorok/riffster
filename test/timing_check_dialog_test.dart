@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:riffster/audio/guitar_ear.dart';
 import 'package:riffster/data/settings_store.dart';
 import 'package:riffster/music/timing_check.dart';
 import 'package:riffster/theme/riffster_theme.dart';
-import 'package:riffster/widgets/practice/input_bar.dart';
+import 'package:riffster/models/instrument.dart';
 import 'package:riffster/widgets/practice/timing_check_dialog.dart';
+import 'package:riffster/widgets/shell/input_panel.dart';
+import 'package:riffster/widgets/shell/input_status.dart';
 
 import 'support/app_fonts.dart';
 
@@ -23,7 +24,8 @@ Future<List<double?>> _startCheck(WidgetTester tester, GuitarEar ear) async {
     MaterialApp(
       home: Builder(
         builder: (context) => TextButton(
-          onPressed: () async => results.add(await showTimingCheck(context, ear)),
+          onPressed: () async =>
+              results.add(await showTimingCheck(context, ear)),
           child: const Text('open'),
         ),
       ),
@@ -74,15 +76,15 @@ HeardInput _input({
   );
 }
 
-/// The input bar alone, at the width it has in the app's window.
-Future<void> _showBar(
+/// The input panel alone, at the width and place it has in the app.
+Future<void> _showPanel(
   WidgetTester tester,
   HeardInput input, {
   double? measuredDelayMs,
   VoidCallback? onTimingCheck,
   VoidCallback? onClip,
-  bool clipRecording = false,
   DateTime? clipStarted,
+  bool silent = false,
 }) async {
   tester.view.physicalSize = const Size(1264, 681);
   tester.view.devicePixelRatio = 1;
@@ -92,24 +94,27 @@ Future<void> _showBar(
     MaterialApp(
       theme: riffsterTheme(),
       home: Scaffold(
-        body: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 28),
-          child: InputBar(
-            input: input,
-            failed: false,
-            looking: false,
-            level: ValueNotifier(0),
-            volume: 1,
-            speakerOn: true,
-            onSource: (_) {},
-            onLookAgain: () {},
-            onVolume: (_) {},
-            onSpeaker: (_) {},
-            measuredDelayMs: measuredDelayMs,
-            onTimingCheck: onTimingCheck ?? () {},
-            onClip: onClip,
-            clipRecording: clipRecording,
-            clipStarted: clipStarted,
+        body: Align(
+          alignment: Alignment.bottomLeft,
+          child: SizedBox(
+            width: InputPanel.width,
+            child: InputPanel(
+              status: InputStatus(input: input, silent: silent),
+              instrument: Instrument.bass,
+              level: ValueNotifier(0),
+              tone: ValueNotifier(null),
+              volume: 1,
+              speakerOn: true,
+              onSource: (_) {},
+              onLookAgain: () {},
+              onVolume: (_) {},
+              onSpeaker: (_) {},
+              measuredDelayMs: measuredDelayMs,
+              onTimingCheck: onTimingCheck ?? () {},
+              onClose: () {},
+              onClip: onClip,
+              clipStarted: clipStarted,
+            ),
           ),
         ),
       ),
@@ -132,7 +137,7 @@ void main() {
     await tester.tap(find.text('Use it'));
     await tester.pumpAndSettle();
     expect(results.single, closeTo(30, _testSlackMs));
-    // The practice screen is listening again.
+    // The shell is listening again.
     expect(ear.onPluck, screenListener);
   });
 
@@ -145,7 +150,11 @@ void main() {
     // Each note reaches the dialog 70 ms after the click and says it
     // was played 45 ms ago, so it was 25 ms behind the click.
     const beat = Duration(milliseconds: 600);
-    for (var click = 0; click < timingCheckLeadIn + timingCheckClicks; click++) {
+    for (
+      var click = 0;
+      click < timingCheckLeadIn + timingCheckClicks;
+      click++
+    ) {
       await tester.pump(const Duration(milliseconds: 70));
       ear.onPluck!(28, 45);
       await tester.pump(beat - const Duration(milliseconds: 70));
@@ -193,10 +202,10 @@ void main() {
     tester,
   ) async {
     var asked = 0;
-    await _showBar(tester, _input(), onTimingCheck: () => asked++);
+    await _showPanel(tester, _input(), onTimingCheck: () => asked++);
     expect(find.byKey(const Key('timing-check')), findsNothing);
 
-    await _showBar(
+    await _showPanel(
       tester,
       _input(active: EarSource.cable),
       onTimingCheck: () => asked++,
@@ -206,7 +215,7 @@ void main() {
 
     // The room mic is listed, and cannot be measured: it would hear
     // the click.
-    await _showBar(
+    await _showPanel(
       tester,
       _input(active: EarSource.mic, isGuitar: false),
       onTimingCheck: () => asked++,
@@ -215,29 +224,28 @@ void main() {
     expect(asked, 1);
   });
 
-  testWidgets('a measured cable shows its delay, and nothing is cut short', (
+  testWidgets('a measured cable shows its delay, and the panel fits', (
     tester,
   ) async {
+    // A panel too tall or too wide for its place fails this test by
+    // itself: Flutter reports the overflow as an error.
     await tester.runAsync(loadAppFonts);
     final input = _input(active: EarSource.cable, exclusive: true);
-    await _showBar(tester, input, measuredDelayMs: 27.4, onClip: () {});
+    await _showPanel(tester, input, measuredDelayMs: 27.4, onClip: () {});
 
     expect(find.text('Timing 27 ms'), findsOneWidget);
     expect(find.text('Record clip'), findsOneWidget);
-    final status = tester.renderObject<RenderParagraph>(
-      find.text('${input.name} · exclusive'),
-    );
-    expect(status.didExceedMaxLines, isFalse);
+    expect(find.text('${input.name} · exclusive'), findsOneWidget);
+    expect(find.text('Play an open string'), findsOneWidget);
   }, variant: TargetPlatformVariant.only(TargetPlatform.windows));
 
   testWidgets('an open clip replaces the status with a recording line', (
     tester,
   ) async {
-    await _showBar(
+    await _showPanel(
       tester,
       _input(active: EarSource.cable),
       onClip: () {},
-      clipRecording: true,
       clipStarted: DateTime.now(),
     );
 
@@ -245,6 +253,20 @@ void main() {
     expect(find.textContaining('Restart does not stop this'), findsOneWidget);
     expect(find.text('Save clip'), findsOneWidget);
     expect(find.text('Record clip'), findsNothing);
+  });
+
+  testWidgets('an open input with no sound says so in place of its name', (
+    tester,
+  ) async {
+    final input = _input(active: EarSource.cable, exclusive: true);
+    await _showPanel(tester, input, silent: true);
+
+    expect(find.textContaining('No sound is arriving'), findsOneWidget);
+    expect(find.textContaining(input.name), findsNothing);
+
+    // With every switch off there is no input to be silent.
+    await _showPanel(tester, _input(), silent: true);
+    expect(find.textContaining('No sound is arriving'), findsNothing);
   });
 
   test('a measured delay is kept for the input it was measured on', () {

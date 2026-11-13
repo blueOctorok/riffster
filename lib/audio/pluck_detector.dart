@@ -170,6 +170,13 @@ class PluckDetector {
   /// How many input samples have been given so far.
   int get samplesHeard => _samplesIn;
 
+  /// The pitch of the note that is ringing, in hertz, or null when no
+  /// single note is. A note name is the nearest semitone. This is the
+  /// pitch itself, which is what a tuner needs.
+  double? get ringingHertz {
+    return _state == _State.holding ? _rate / _heldPeriod : null;
+  }
+
   /// Feeds the next samples, each from -1 to 1, and returns the plucks
   /// that became known. Usually that is none.
   List<Pluck> hear(List<double> samples) {
@@ -297,9 +304,7 @@ class PluckDetector {
     }
     if (_newEvenIfSame || read.midi != _heldMidi) {
       final before = _changedFrom;
-      final at = before == null
-          ? _onsetAt
-          : _changePoint(before, read.period);
+      final at = before == null ? _onsetAt : _changePoint(before, read.period);
       found.add(Pluck(read.midi, at * _thin));
     }
     _heldSince = _listenFrom;

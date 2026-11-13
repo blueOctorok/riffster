@@ -24,15 +24,18 @@ class InstrumentSwitch extends StatelessWidget {
       ),
       child: Padding(
         padding: const EdgeInsets.all(3),
+        // The two halves share whatever width the switch is given, so
+        // it lines up with the rail it sits in.
         child: Row(
-          mainAxisSize: MainAxisSize.min,
           children: [
             // Bass first. It is the instrument this app is built around.
             for (final instrument in [Instrument.bass, Instrument.guitar])
-              _Choice(
-                instrument: instrument,
-                on: instrument == selected,
-                onTap: () => onSelected(instrument),
+              Expanded(
+                child: _Choice(
+                  instrument: instrument,
+                  on: instrument == selected,
+                  onTap: () => onSelected(instrument),
+                ),
               ),
           ],
         ),
@@ -63,7 +66,7 @@ class _Choice extends StatelessWidget {
         backgroundColor: on ? RiffColors.gold : null,
         foregroundColor: RiffColors.quiet,
         disabledForegroundColor: RiffColors.onGold,
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 10),
         minimumSize: Size.zero,
         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
       ),
