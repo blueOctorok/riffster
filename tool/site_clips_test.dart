@@ -22,6 +22,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:riffster/app.dart';
 import 'package:riffster/data/demo_song.dart';
+import 'package:riffster/data/library_store.dart';
 import 'package:riffster/data/settings_store.dart';
 import 'package:riffster/models/instrument.dart';
 import 'package:riffster/models/tab_song.dart';
@@ -198,9 +199,17 @@ class _Film {
       if (code != 0) throw StateError('ffmpeg failed on $name: $_complaints');
       final seconds = posterAt.inMilliseconds / 1000;
       final still = await Process.run(_ffmpegProgram(), [
-        '-y', '-loglevel', 'error',
-        '-ss', '$seconds', '-i', _path,
-        '-frames:v', '1', '-q:v', '3',
+        '-y',
+        '-loglevel',
+        'error',
+        '-ss',
+        '$seconds',
+        '-i',
+        _path,
+        '-frames:v',
+        '1',
+        '-q:v',
+        '3',
         '$_mediaFolder/$name.jpg',
       ]);
       if (still.exitCode != 0) {
@@ -304,7 +313,11 @@ Future<PracticeRun> _openApp(
   await tester.pumpWidget(
     RepaintBoundary(
       key: _shot,
-      child: RiffsterApp(key: UniqueKey(), store: store),
+      child: RiffsterApp(
+        key: UniqueKey(),
+        store: store,
+        library: LibraryStore.inMemory(),
+      ),
     ),
   );
   // The app opens on Home.
@@ -316,136 +329,161 @@ Future<PracticeRun> _openApp(
 void main() {
   final bass = warmUpFor(Instrument.bass);
 
-  testWidgets('the whole app, one good run', (tester) async {
-    await tester.runAsync(loadAppFonts);
-    final run = await _openApp(tester, Instrument.bass);
-    // The clip stops under the play controls. Below them the chip on
-    // the rail says "Looking…", which is true of a test and would only
-    // puzzle someone watching.
-    final dock = tester.getRect(find.byType(TransportDock));
-    final film = _Film(
-      tester,
-      'app-run',
-      crop: Rect.fromLTRB(0, 0, _window.width, dock.bottom + 8),
-      scale: 1.5,
-    );
-    final player = _ScriptedPlayer(run, _goodTake);
+  testWidgets(
+    'the whole app, one good run',
+    (tester) async {
+      await tester.runAsync(loadAppFonts);
+      final run = await _openApp(tester, Instrument.bass);
+      // The clip stops under the play controls. Below them the chip on
+      // the rail says "Looking…", which is true of a test and would only
+      // puzzle someone watching.
+      final dock = tester.getRect(find.byType(TransportDock));
+      final film = _Film(
+        tester,
+        'app-run',
+        crop: Rect.fromLTRB(0, 0, _window.width, dock.bottom + 8),
+        scale: 1.5,
+      );
+      final player = _ScriptedPlayer(run, _goodTake);
 
-    // The app's own frame timer moves the run here, so a frame is
-    // only time going by. The second pump draws what a pluck changed.
-    Future<void> step() async {
-      await tester.pump(_frame);
-      player.playWhatIsDue();
-      await tester.pump();
-      await film.addFrame();
-    }
+      // The app's own frame timer moves the run here, so a frame is
+      // only time going by. The second pump draws what a pluck changed.
+      Future<void> step() async {
+        await tester.pump(_frame);
+        player.playWhatIsDue();
+        await tester.pump();
+        await film.addFrame();
+      }
 
-    for (var rest = 0; rest < 40; rest++) {
-      await step();
-    }
-    run.play();
-    while (!run.finished) {
-      await step();
-    }
-    // Long enough for the result card to slide up and be read.
-    for (var hold = 0; hold < _framesPerSecond * 3; hold++) {
-      await step();
-    }
-    await film.finish(posterAt: const Duration(milliseconds: 6400));
-  }, variant: _onWindows, timeout: _filming);
+      for (var rest = 0; rest < 40; rest++) {
+        await step();
+      }
+      run.play();
+      while (!run.finished) {
+        await step();
+      }
+      // Long enough for the result card to slide up and be read.
+      for (var hold = 0; hold < _framesPerSecond * 3; hold++) {
+        await step();
+      }
+      await film.finish(posterAt: const Duration(milliseconds: 6400));
+    },
+    variant: _onWindows,
+    timeout: _filming,
+  );
 
-  testWidgets('close on the playhead, every mark', (tester) async {
-    await tester.runAsync(loadAppFonts);
-    await _filmStage(
-      tester,
-      'stage-marks',
-      song: bass,
-      neck: ebonyNeck,
-      playing: _roughTake,
-      crop: Rect.fromLTWH(
-        _stagePadding.left,
-        _stagePadding.top,
-        560,
-        StageMetrics.height,
-      ),
-      scale: 2,
-    );
-  }, variant: _onWindows, timeout: _filming);
-
-  for (final neck in neckThemes) {
-    testWidgets('the ${neck.name} board', (tester) async {
+  testWidgets(
+    'close on the playhead, every mark',
+    (tester) async {
       await tester.runAsync(loadAppFonts);
       await _filmStage(
         tester,
-        'neck-${neck.name.toLowerCase()}',
+        'stage-marks',
         song: bass,
-        neck: neck,
-        playing: _goodTake,
-        scale: 1.5,
+        neck: ebonyNeck,
+        playing: _roughTake,
+        crop: Rect.fromLTWH(
+          _stagePadding.left,
+          _stagePadding.top,
+          560,
+          StageMetrics.height,
+        ),
+        scale: 2,
       );
-    }, variant: _onWindows, timeout: _filming);
+    },
+    variant: _onWindows,
+    timeout: _filming,
+  );
+
+  for (final neck in neckThemes) {
+    testWidgets(
+      'the ${neck.name} board',
+      (tester) async {
+        await tester.runAsync(loadAppFonts);
+        await _filmStage(
+          tester,
+          'neck-${neck.name.toLowerCase()}',
+          song: bass,
+          neck: neck,
+          playing: _goodTake,
+          scale: 1.5,
+        );
+      },
+      variant: _onWindows,
+      timeout: _filming,
+    );
   }
 
-  testWidgets('guitar chord changes', (tester) async {
-    await tester.runAsync(loadAppFonts);
-    final changes = songFromLane([
-      for (final name in ['G', 'C', 'D', 'Em', 'F'])
-        LaneChord(
-          chordBlocks.firstWhere((block) => block.label == name),
-          durationMs: 1400,
-        ),
-    ]);
-    await _filmStage(
-      tester,
-      'guitar-changes',
-      song: changes,
-      neck: rosewoodNeck,
-      playing: const {0: -14, 1: 20, 2: -128, 3: 10, 4: -6},
-      scale: 1.5,
-      // The lane counts in slowly. Half of it is enough to watch.
-      skipCountMs: 2000,
-    );
-  }, variant: _onWindows, timeout: _filming);
+  testWidgets(
+    'guitar chord changes',
+    (tester) async {
+      await tester.runAsync(loadAppFonts);
+      final changes = songFromLane([
+        for (final name in ['G', 'C', 'D', 'Em', 'F'])
+          LaneChord(
+            chordBlocks.firstWhere((block) => block.label == name),
+            durationMs: 1400,
+          ),
+      ]);
+      await _filmStage(
+        tester,
+        'guitar-changes',
+        song: changes,
+        neck: rosewoodNeck,
+        playing: const {0: -14, 1: 20, 2: -128, 3: 10, 4: -6},
+        scale: 1.5,
+        // The lane counts in slowly. Half of it is enough to watch.
+        skipCountMs: 2000,
+      );
+    },
+    variant: _onWindows,
+    timeout: _filming,
+  );
 
-  testWidgets('the first row of the chord book, as a still', (tester) async {
-    await tester.runAsync(loadAppFonts);
-    await _openApp(tester, Instrument.guitar, area: AppArea.build);
-    final book = tester.getRect(find.byType(ChordPalette));
-    // The whole width of the book, and as tall as its first card.
-    final firstCard = tester.getRect(
-      find
-          .descendant(
-            of: find.byType(ChordPalette),
-            matching: find.byType(Draggable<LaneDrag>),
-          )
-          .first,
-    );
-    final cards = Rect.fromLTRB(
-      book.left,
-      book.top,
-      book.right,
-      firstCard.bottom,
-    );
-    final boundary = tester.renderObject<RenderRepaintBoundary>(
-      find.byKey(_shot),
-    );
-    await tester.runAsync(() async {
-      const scale = 2.0;
-      final whole = await boundary.toImage(pixelRatio: scale);
-      final recorder = ui.PictureRecorder();
-      Canvas(recorder).drawImage(
-        whole,
-        Offset(-cards.left * scale, -cards.top * scale),
-        Paint(),
+  testWidgets(
+    'the first row of the chord book, as a still',
+    (tester) async {
+      await tester.runAsync(loadAppFonts);
+      await _openApp(tester, Instrument.guitar, area: AppArea.build);
+      final book = tester.getRect(find.byType(ChordPalette));
+      // The whole width of the book, and as tall as its first card.
+      final firstCard = tester.getRect(
+        find
+            .descendant(
+              of: find.byType(ChordPalette),
+              matching: find.byType(Draggable<LaneDrag>),
+            )
+            .first,
       );
-      final cut = await recorder.endRecording().toImage(
-        (cards.width * scale).round(),
-        (cards.height * scale).round(),
+      final cards = Rect.fromLTRB(
+        book.left,
+        book.top,
+        book.right,
+        firstCard.bottom,
       );
-      final png = await cut.toByteData(format: ui.ImageByteFormat.png);
-      File('$_mediaFolder/chord-book-row.png')
-        ..parent.createSync(recursive: true)
-        ..writeAsBytesSync(png!.buffer.asUint8List());
-    });
-  }, variant: _onWindows, timeout: _filming);
+      final boundary = tester.renderObject<RenderRepaintBoundary>(
+        find.byKey(_shot),
+      );
+      await tester.runAsync(() async {
+        const scale = 2.0;
+        final whole = await boundary.toImage(pixelRatio: scale);
+        final recorder = ui.PictureRecorder();
+        Canvas(recorder).drawImage(
+          whole,
+          Offset(-cards.left * scale, -cards.top * scale),
+          Paint(),
+        );
+        final cut = await recorder.endRecording().toImage(
+          (cards.width * scale).round(),
+          (cards.height * scale).round(),
+        );
+        final png = await cut.toByteData(format: ui.ImageByteFormat.png);
+        File('$_mediaFolder/chord-book-row.png')
+          ..parent.createSync(recursive: true)
+          ..writeAsBytesSync(png!.buffer.asUint8List());
+      });
+    },
+    variant: _onWindows,
+    timeout: _filming,
+  );
 }

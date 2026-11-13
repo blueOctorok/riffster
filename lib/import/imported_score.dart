@@ -2,6 +2,7 @@ import '../models/fretting_finger.dart';
 import '../models/instrument.dart';
 import '../models/tab_note.dart';
 import '../models/tab_song.dart';
+import '../music/melody_on_bass.dart';
 import '../music/part_names.dart';
 import '../music/position_fingering.dart';
 
@@ -36,12 +37,16 @@ class ImportedScore {
       final notes = _notesFromJson(track['notes']);
       if (notes.isEmpty) continue;
       final name = track['name'];
-      final strings = track['strings'];
+      final tuning = track['tuning'];
       tracks.add(
         ImportedTrack(
-          name: name is String && name.trim().isNotEmpty ? name.trim() : 'Guitar',
+          name: name is String && name.trim().isNotEmpty
+              ? name.trim()
+              : 'Guitar',
           notes: notes,
-          stringCount: strings is num ? strings.round() : 6,
+          tuning: tuning is List
+              ? [for (final pitch in tuning.whereType<num>()) pitch.round()]
+              : _standardGuitar,
         ),
       );
     }
@@ -56,40 +61,89 @@ class ImportedScore {
     );
   }
 
-  /// The title on the practice screen. The track name is added when the
-  /// file has a part name that is not already the song title.
+  /// [track] as it is written in the file. The stage has to have a staff
+  /// for it, so this is only for a part whose [ImportedTrack.instrument]
+  /// is known.
   TabSong toSong(ImportedTrack track, {required String fallbackTitle}) {
-    final songTitle = title.isNotEmpty ? title : fallbackTitle;
-    final showTrack = track.name.isNotEmpty && track.name != songTitle;
-    final instrument = track.instrument;
+    final instrument = track.instrument!;
     return TabSong(
-      title: showTrack ? '$songTitle — ${track.name}' : songTitle,
+      title: _titleWith(track.name, fallbackTitle),
       tempoBpm: tempoBpm,
       notes: assignPositionFingers(track.notes, instrument: instrument),
       instrument: instrument,
       bars: bars,
     );
   }
+
+  /// The melody of [track] as a line for the bass. Any part will do: a
+  /// lead guitar, a voice, a keyboard. Only its pitches and times are
+  /// used, and nothing leaves this computer.
+  TabSong toMelodyOnBass(
+    ImportedTrack track, {
+    required String fallbackTitle,
+    required Register register,
+  }) {
+    return TabSong(
+      // The two registers are two songs in the Library, each with its
+      // own scores, so they need two names.
+      title: _titleWith(
+        register == Register.high
+            ? '${track.name} on bass, high'
+            : '${track.name} on bass',
+        fallbackTitle,
+      ),
+      tempoBpm: tempoBpm,
+      notes: assignPositionFingers(
+        melodyOnBass(track.notes, register: register),
+        instrument: Instrument.bass,
+      ),
+      instrument: Instrument.bass,
+      bars: bars,
+    );
+  }
+
+  /// The title on the practice screen. The part is added when it has a
+  /// name that is not already the song title.
+  String _titleWith(String part, String fallbackTitle) {
+    final songTitle = title.isNotEmpty ? title : fallbackTitle;
+    final showPart = part.isNotEmpty && part != songTitle;
+    return showPart ? '$songTitle — $part' : songTitle;
+  }
 }
 
+final _standardGuitar = Instrument.guitar.openStringMidi;
+
 class ImportedTrack {
-  const ImportedTrack({
-    required this.name,
-    required this.notes,
-    this.stringCount = 6,
-  });
+  ImportedTrack({required this.name, required this.notes, List<int>? tuning})
+    : tuning = tuning ?? _standardGuitar;
 
   final String name;
   final List<TabNote> notes;
 
-  /// How many strings the file gave this part.
-  final int stringCount;
+  /// The pitch of each open string as the file has it, from the top line
+  /// of the staff down. Empty for a part with no strings, such as a voice
+  /// or a keyboard. A file that does not say is read as a guitar.
+  final List<int> tuning;
 
-  /// Four strings is a bass. Anything else sits on the six-line staff.
-  Instrument get instrument {
-    return stringCount == Instrument.bass.stringCount
-        ? Instrument.bass
-        : Instrument.guitar;
+  /// The instrument this part is written for. Null when the stage has no
+  /// staff for it: five strings, seven, or none.
+  ///
+  /// The count alone is not enough, because a ukulele has four strings
+  /// too. The part also has to be [isAsLowAs] the instrument.
+  Instrument? get instrument {
+    for (final instrument in Instrument.values) {
+      final sameStrings = tuning.length == instrument.stringCount;
+      if (sameStrings && isAsLowAs(instrument)) return instrument;
+    }
+    return null;
+  }
+
+  /// True when the lowest string sits within a fourth of [instrument]'s
+  /// own. That lets in a part tuned down a step, and the low B of a
+  /// five-string bass, and keeps a guitar apart from a bass.
+  bool isAsLowAs(Instrument instrument) {
+    if (tuning.isEmpty) return false;
+    return (tuning.last - instrument.openStringMidi.last).abs() <= 5;
   }
 }
 

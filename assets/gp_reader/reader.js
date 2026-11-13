@@ -30,8 +30,10 @@ function riffsterReadScore(score) {
     if (notes.length === 0) continue;
     tracks.push({
       name: track.name || "Guitar",
-      // Four strings is a bass. The stage draws that many lines.
-      strings: stringCountOf(track.staves[0]),
+      // The pitch of each open string, from the top line of the staff
+      // down. Its length is the string count, and its lowest pitch tells
+      // a bass from a ukulele. Empty for a voice or a keyboard.
+      tuning: tuningOf(track.staves[0]),
       notes,
     });
   }
@@ -44,8 +46,8 @@ function riffsterReadScore(score) {
   };
 }
 
-function stringCountOf(staff) {
-  return staff && staff.tuning && staff.tuning.length ? staff.tuning.length : 6;
+function tuningOf(staff) {
+  return staff && staff.tuning ? Array.from(staff.tuning) : [];
 }
 
 // Where each bar starts and ends in milliseconds, and how many beats it
@@ -64,35 +66,41 @@ function notesForTrack(score, track) {
 
   // alphaTab numbers 1 as the lowest string. The staff numbers 1 as the
   // top line, which is the highest string. A 6-string guitar flips 1 <-> 6.
-  const stringCount = stringCountOf(staff);
+  const stringCount = tuningOf(staff).length;
   const pending = [];
+  // The entry each written note became, so a tie can find the note it
+  // lengthens. A tie onto a tie reaches the same entry.
+  const sounding = new Map();
 
   for (const bar of staff.bars) {
     for (const voice of bar.voices) {
       for (const beat of voice.beats) {
         if (beat.isRest) continue;
         for (const note of beat.notes) {
-          const stringNumber = stringCount - note.string + 1;
           if (note.isTieDestination) {
             // A tie is the same note still ringing, not a second pluck.
-            for (let i = pending.length - 1; i >= 0; i--) {
-              if (pending[i].string === stringNumber) {
-                pending[i].durationTicks += beat.playbackDuration;
-                break;
-              }
+            const held = sounding.get(note.tieOrigin);
+            if (held) {
+              held.durationTicks += beat.playbackDuration;
+              sounding.set(note, held);
             }
             continue;
           }
-          // The painted staff is six lines. A string past that has nowhere to sit.
-          if (stringNumber < 1 || stringNumber > 6) continue;
-          pending.push({
+          // Every note is sent, whatever it was written for. A voice or
+          // a keyboard has no strings, so its notes sit on string 0. The
+          // app only draws a part whose strings it has a staff for. The
+          // rest are wanted for their pitch and their time.
+          const onString = note.isStringed;
+          const entry = {
             tick: beat.absolutePlaybackStart,
             durationTicks: beat.playbackDuration,
-            string: stringNumber,
-            fret: Math.round(note.fret),
+            string: onString ? stringCount - note.string + 1 : 0,
+            fret: onString ? Math.round(note.fret) : 0,
             midi: Math.round(note.realValue),
-            finger: frettingFinger(note),
-          });
+            finger: onString ? frettingFinger(note) : null,
+          };
+          sounding.set(note, entry);
+          pending.push(entry);
         }
       }
     }

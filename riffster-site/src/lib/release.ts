@@ -2,5 +2,5 @@
 export const windowsBuild = {
   href: "/Riffster-windows.zip",
   builtOn: "13 November 2026",
-  size: "15 MB",
+  size: "14 MB",
 };

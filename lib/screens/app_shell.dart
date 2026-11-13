@@ -9,6 +9,8 @@ import '../audio/clip_recorder.dart';
 import '../audio/guitar_ear.dart';
 import '../audio/pitch.dart';
 import '../data/demo_song.dart';
+import '../data/library_item.dart';
+import '../data/library_store.dart';
 import '../data/settings_store.dart';
 import '../import/guitar_pro_reader.dart';
 import '../import/open_guitar_pro.dart';
@@ -35,6 +37,7 @@ import '../widgets/shell/input_status.dart';
 import '../widgets/shell/side_rail.dart';
 import '../widgets/stage/stage_view.dart';
 import 'home_area.dart';
+import 'library_area.dart';
 
 /// The frame around every area of the app: the rail down the left, the
 /// area you are in beside it, and the input panel that slides over it.
@@ -46,9 +49,10 @@ import 'home_area.dart';
 /// themselves, so a frame of animation or a jump of the level meter
 /// never rebuilds the whole window.
 class AppShell extends StatefulWidget {
-  const AppShell({super.key, required this.store});
+  const AppShell({super.key, required this.store, required this.library});
 
   final SettingsStore store;
+  final LibraryStore library;
 
   @override
   State<AppShell> createState() => _AppShellState();
@@ -76,6 +80,10 @@ class _AppShellState extends State<AppShell>
 
   /// The count-in beat that last clicked, so each beat clicks once.
   int? _countBeat;
+
+  /// Whether the song had reached its end the last time it was looked
+  /// at, so its score is kept once and not on every change after.
+  var _songWasFinished = false;
 
   /// Null outside a debug build.
   final _clips = ClipRecorder.forThisBuild();
@@ -117,9 +125,11 @@ class _AppShellState extends State<AppShell>
   bool get _building => _area == AppArea.build;
   PracticeRun get _run => _building ? _laneRun : _songRun;
   SettingsStore get _store => widget.store;
+  LibraryStore get _library => widget.library;
 
-  /// Home has no stage, so nothing there can be played or looped.
-  bool get _onStage => _area != AppArea.home;
+  /// Only Songs and Build have a stage. Nothing can be played or
+  /// looped anywhere else.
+  bool get _onStage => _area == AppArea.songs || _area == AppArea.build;
 
   bool get _canPlay {
     return _onStage && !_opening && _run.timeline.moments.isNotEmpty;
@@ -140,6 +150,7 @@ class _AppShellState extends State<AppShell>
     _songRun = PracticeRun(warmUpFor(_store.instrument ?? Instrument.bass));
     _ticker = createTicker(_onTick);
     _songRun.addListener(_syncTicker);
+    _songRun.addListener(_keepBestScore);
     _laneRun.addListener(_syncTicker);
     // Widget tests must not open the microphone or the speaker.
     if (Platform.environment.containsKey('FLUTTER_TEST')) return;
@@ -197,6 +208,25 @@ class _AppShellState extends State<AppShell>
     } else {
       _ticker.stop();
     }
+  }
+
+  /// Gives the Library the score of a song that has just been played
+  /// from its first note to its last. A run started partway through has
+  /// notes with no mark, so it says nothing about the whole song.
+  void _keepBestScore() {
+    final finished = _songRun.finished;
+    if (finished && !_songWasFinished && _songRun.judgedWholeSong) {
+      // Not waited on: the score counts from now, and the write to
+      // disk can finish when it finishes.
+      unawaited(
+        _library.recordRun(
+          libraryIdOf(_songRun.song),
+          speed: _songRun.scoredSpeed,
+          accuracy: _songRun.summary.accuracy,
+        ),
+      );
+    }
+    _songWasFinished = finished;
   }
 
   /// The delay the timing check found on the open input, if it has
@@ -319,8 +349,14 @@ class _AppShellState extends State<AppShell>
     if (_opening) return;
     setState(() => _opening = true);
     try {
-      final song = await openGuitarPro(context, _reader);
+      final song = await openGuitarPro(
+        context,
+        _reader,
+        playing: _songRun.song.instrument,
+      );
       if (mounted && song != null) {
+        // Kept from here on, so it opens again without the file.
+        unawaited(_library.save(song));
         _loadSong(song);
         _go(AppArea.songs);
       }
@@ -438,7 +474,7 @@ class _AppShellState extends State<AppShell>
     return Scaffold(
       body: Room(
         child: CallbackShortcuts(
-          // Home has no stage, so there is nothing for the keys to do.
+          // Off the stage there is nothing for the keys to do.
           bindings: _onStage ? _keys : const {},
           child: Focus(
             autofocus: true,
@@ -477,7 +513,11 @@ class _AppShellState extends State<AppShell>
                         ),
                         child: KeyedSubtree(
                           key: ValueKey(_area),
-                          child: _onStage ? _stagePage() : _home(),
+                          child: switch (_area) {
+                            AppArea.home => _home(),
+                            AppArea.library => _libraryPage(),
+                            _ => _stagePage(),
+                          },
                         ),
                       ),
                       if (_inputOpen)
@@ -544,6 +584,18 @@ class _AppShellState extends State<AppShell>
       onStage: () => _go(AppArea.songs),
       onOpenFile: _opening ? null : _open,
       onArea: _go,
+    );
+  }
+
+  Widget _libraryPage() {
+    return LibraryArea(
+      library: _library,
+      instrument: _songRun.song.instrument,
+      onOpen: (item) {
+        _loadSong(item.song);
+        _go(AppArea.songs);
+      },
+      onRemove: (item) => setState(() => unawaited(_library.remove(item))),
     );
   }
 

@@ -41,7 +41,7 @@ Built on 2026-11-11. The boxes still open need a bass plugged in.
 - [ ] Tune the D string up with the tuner in the input panel. After that, four fresh takes would test the listener better than these, which have notes sitting on the border between two names. Not urgent.
 - [x] An open input that sends no sound is reopened every four seconds until it does, and the status line says no sound is arriving. Found on 2026-11-12 when a whole take was recorded with nothing heard.
 - [ ] Find what refused exclusive mode when that window opened, and why the shared fallback then gave no sound. Neither is known.
-- [x] The download zip was rebuilt on 2026-11-13 with the silent-input fix and Stage 3. The page says 13 November 2026, 15 MB.
+- [x] The download zip was rebuilt on 2026-11-13 with the silent-input fix and Stage 3. Replaced later the same day by the Stage 4 build.
 - [ ] Tune the two detector thresholds (`_floor`, `_jump` in `pluck_detector.dart`) against those clips.
 - [ ] The detector runs off the screen thread. Left on the main thread on purpose: it measured 1 to 20 ms of work per second of sound. Move it only if the performance overlay shows dropped frames. Waiting on the user's OK for this change of plan.
 - [ ] On the bass, once the D string is tuned: open E, A, D, G and fret 12 on each show the right name. In the clips E, A, and G already do.
@@ -60,21 +60,27 @@ Built on 2026-11-13. Not yet approved by the user.
 - [x] Input panel: Cable, iRig, Mic, Look again, the timing check, the volume and speaker switch, and a tuner needle. It slides out from the chip and a click away closes it.
 - [x] The tuner measures against the open strings, so a string far out still reads as that string.
 - [x] Every area uses the Stage 1 look. The chord book keeps its layout and behaviour. Moving between areas is a short fade and rise.
-- [ ] The user looks at the shell and approves it, or says what to change.
+- [x] The user looked at the shell on 2026-11-13, said it was working well, and moved on to Stage 4 with no changes asked for.
 - [x] The tuner was used on the real bass, 2026-11-13: E, A, and G tuned fine. On D the needle did not move, because the dial stopped at 50 cents and the string was 57 flat. The dial now reaches a semitone each way and has no needle when nothing is heard.
-- [ ] The user tunes the D string with the wider dial and says whether the needle moves.
+- [x] The user tuned with the wider dial on 2026-11-13: "it is working so well".
 - [ ] Decide whether the areas that are not built should show on the rail as SOON, or stay hidden until they are. Showing them follows the plan. Hiding them is one line.
 - [ ] Days in a row and minutes played go on Home in Stage 5. Until then the lower half of Home is empty.
 
 ### Stage 4: Songs, melody on bass, Library
 
 - [x] The file reader sends bar times and each part's string count. Done early, in Stage 1.
-- [ ] The reader also sends tuning. The part picker filters by instrument. A 5-string part is shown as not supported yet. Today it opens on the six-line staff.
-- [ ] Shared code that places a list of pitches on the neck with the least hand movement, with tests.
-- [ ] Melody on bass from the user's own file: any part, moved by whole octaves, a chord becomes its top note, low or high on the neck.
-- [ ] Library: one small file per item with the best score.
-- [ ] Riffster originals: about a dozen bass riffs and a few bass melodies written for the app. The user judges them on the bass.
-- [ ] A few very old copyright-free tunes arranged by us as bass melodies.
+- [x] The reader also sends tuning, and every note of every part. The part picker sorts by instrument. A 5-string part is listed as not supported yet. Built 2026-11-13.
+- [x] Shared code that places a list of pitches on the neck with the least hand movement, with tests: `lib/music/place_on_neck.dart`. Built 2026-11-13.
+- [x] Melody on bass from the user's own file: any part, moved by whole octaves, a chord becomes its top note, Low or High. Built 2026-11-13.
+- [ ] The user opens one of their own files on bass, picks a part as a melody both ways, and says how the fingering feels.
+- [ ] After that: decide whether the placer should look at the time between notes. Today a slow line and a fast one get the same fingering.
+- [ ] Decide whether Low and High should also be a switch on the stage. Today it is chosen in the picker, so changing it means opening the file again.
+- [x] The download zip was rebuilt on 2026-11-13 with Stage 4. The page says 13 November 2026, 14 MB.
+- [x] Library: one JSON file per song of yours under `<appSupport>/library/`, scores for all songs in one `scores.json`, best on-time percent kept per speed. A part opened from a file is saved by itself, with Remove on the card. A score counts only when the run judged every note and never went back; it is filed under the slowest speed used. Settled with the user 2026-11-13. Built the same day.
+- [x] Riffster originals: 12 bass riffs and 3 bass melodies in `lib/data/originals.dart`, written as riff text and placed by the placer. Built 2026-11-13.
+- [x] Old tunes: Ode to Joy, Amazing Grace (3/4), Greensleeves (3/4), same file. Built 2026-11-13.
+- [ ] The user judges the originals and old tunes on the bass.
+- [ ] Optional later: a "new best at this speed" line on the end-of-run card.
 
 ### Stage 5: Practice
 
@@ -167,7 +173,7 @@ One list of grips: the name, the fret on each string, and the finger on each fre
 ## 6. Phones, after the PC version feels fair
 
 - [ ] Android build from this same Flutter project, tested with the iRig.
-- [ ] iPhone build. That needs a Mac or a cloud Mac, plus the $99 Apple developer account.
+- [ ] iPhone and iPad build. That needs a Mac or a cloud Mac, plus the $99 Apple developer account. The instrument plugs in through the iRig. The mic is the input for someone with no interface. The Real Tone cable stays on Windows.
 - [ ] Google Play, if we publish Android, is a one-time $25 fee.
 
 ## Download page

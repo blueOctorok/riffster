@@ -1,14 +1,16 @@
 import 'package:flutter/material.dart';
 
+import 'data/library_store.dart';
 import 'data/settings_store.dart';
 import 'screens/app_shell.dart';
 import 'screens/instrument_chooser.dart';
 import 'theme/riffster_theme.dart';
 
 class RiffsterApp extends StatefulWidget {
-  const RiffsterApp({super.key, required this.store});
+  const RiffsterApp({super.key, required this.store, required this.library});
 
   final SettingsStore store;
+  final LibraryStore library;
 
   @override
   State<RiffsterApp> createState() => _RiffsterAppState();
@@ -38,7 +40,7 @@ class _RiffsterAppState extends State<RiffsterApp> {
                     setState(() => store.instrument = instrument);
                   },
                 )
-              : AppShell(store: store),
+              : AppShell(store: store, library: widget.library),
         ),
       ),
     );

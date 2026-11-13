@@ -62,25 +62,28 @@ void main() {
     expect(run.averageTimingMs, closeTo(0, 0.01));
   });
 
-  test('a wrong pitch is a stray note, and the right one can still save it', () {
-    final run = PracticeRun(_fourNotes())..play();
+  test(
+    'a wrong pitch is a stray note, and the right one can still save it',
+    () {
+      final run = PracticeRun(_fourNotes())..play();
 
-    _wait(run, 2000);
-    run.pluck(72, latencyMs: 0);
-    // A wrong note is not a verdict on a played note, so the strip
-    // keeps quiet about it.
-    expect(run.lastMark, isNull);
-    expect(run.heardMidi, isNull);
-    expect(run.strayNotes, 1);
-    // The note is still open. The X waits until the bubble has gone.
-    expect(run.summary.missed, 0);
+      _wait(run, 2000);
+      run.pluck(72, latencyMs: 0);
+      // A wrong note is not a verdict on a played note, so the strip
+      // keeps quiet about it.
+      expect(run.lastMark, isNull);
+      expect(run.heardMidi, isNull);
+      expect(run.strayNotes, 1);
+      // The note is still open. The X waits until the bubble has gone.
+      expect(run.summary.missed, 0);
 
-    _wait(run, 40);
-    run.pluck(60, latencyMs: 0);
-    expect(run.summary.missed, 0);
-    expect(run.summary.onTime, 1);
-    expect(run.streak, 1);
-  });
+      _wait(run, 40);
+      run.pluck(60, latencyMs: 0);
+      expect(run.summary.missed, 0);
+      expect(run.summary.onTime, 1);
+      expect(run.streak, 1);
+    },
+  );
 
   test('how early or late the last note was is kept for the gauge', () {
     final run = PracticeRun(_fourNotes())..play();
@@ -323,7 +326,10 @@ void main() {
     expect(run.marks.values, [ScoreMark.hit]);
     // The last note of the old pass was never played. It is missed
     // after the wrap, once its own window has closed.
-    expect(run.lastPassMarks.values.where((m) => m == ScoreMark.miss), hasLength(4));
+    expect(
+      run.lastPassMarks.values.where((m) => m == ScoreMark.miss),
+      hasLength(4),
+    );
   });
 
   test('the last note of a loop can be played just after the wrap', () {
@@ -392,5 +398,66 @@ void main() {
     expect(run.playing, isTrue);
     expect(run.positionMs, closeTo(600, 0.01));
     expect(run.marks, isEmpty);
+  });
+
+  test('scoredSpeed is the slowest the song was played', () {
+    final run = PracticeRun(_fourNotes())..play();
+    expect(run.scoredSpeed, 1);
+
+    run.speed = 0.7;
+    _wait(run, 50);
+    expect(run.scoredSpeed, 0.7);
+
+    run.speed = 1;
+    _wait(run, 50);
+    // Speeding back up does not raise the score's speed.
+    expect(run.scoredSpeed, 0.7);
+
+    run.restart();
+    expect(run.scoredSpeed, 1);
+  });
+
+  test('judgedWholeSong is only true for one clean trip through', () {
+    final run = PracticeRun(_fourNotes())..play();
+    _wait(run, 2000);
+    run.pluck(60, latencyMs: 0);
+    for (final midi in [61, 62, 63]) {
+      _wait(run, 500);
+      run.pluck(midi, latencyMs: 0);
+    }
+    // Past the last note's length and the run-out.
+    _wait(run, 400 + PracticeRun.runOutMs);
+    expect(run.finished, isTrue);
+    expect(run.judgedWholeSong, isTrue);
+
+    // Starting at the third note leaves the first two unmarked.
+    final mid = PracticeRun(_fourNotes());
+    mid.seek(1000);
+    mid.play();
+    // Count-in ends on the note at 1000.
+    _wait(mid, 2000);
+    mid.pluck(62, latencyMs: 0);
+    _wait(mid, 500);
+    mid.pluck(63, latencyMs: 0);
+    _wait(mid, 400 + PracticeRun.runOutMs);
+    expect(mid.finished, isTrue);
+    expect(mid.summary.judged, 2);
+    expect(mid.judgedWholeSong, isFalse);
+
+    // Going back after notes are marked patches a score together.
+    final back = PracticeRun(_fourNotes())..play();
+    _wait(back, 2000);
+    back.pluck(60, latencyMs: 0);
+    back.seek(0);
+    back.play();
+    _wait(back, 2000);
+    back.pluck(60, latencyMs: 0);
+    for (final midi in [61, 62, 63]) {
+      _wait(back, 500);
+      back.pluck(midi, latencyMs: 0);
+    }
+    _wait(back, 400 + PracticeRun.runOutMs);
+    expect(back.finished, isTrue);
+    expect(back.judgedWholeSong, isFalse);
   });
 }

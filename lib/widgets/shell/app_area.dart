@@ -21,10 +21,10 @@ enum AppArea {
   /// When an area is built, its line here is the one thing to change.
   bool readyFor(Instrument instrument) {
     return switch (this) {
-      home || songs => true,
+      home || songs || library => true,
       // Build is the chord book so far, and that is guitar shapes.
       build => instrument == Instrument.guitar,
-      practice || create || library => false,
+      practice || create => false,
     };
   }
 }

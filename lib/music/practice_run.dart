@@ -135,6 +135,8 @@ class PracticeRun extends ChangeNotifier {
   var _playing = false;
   var _finished = false;
   var _speed = 1.0;
+  double? _slowestPlayed;
+  var _wentBack = false;
   LoopRange? _loop;
   var _loopPass = 0;
   CountIn? _countIn;
@@ -185,6 +187,19 @@ class PracticeRun extends ChangeNotifier {
   bool get finished => _finished;
 
   double get speed => _speed;
+
+  /// The speed this run's score belongs to: the slowest the song has
+  /// been played since the score was cleared. A run that was slowed for
+  /// one hard bar is a slowed run.
+  double get scoredSpeed => _slowestPlayed ?? _speed;
+
+  /// True when the marks tell of one trip through the whole song: every
+  /// note has one, and the player never went back to redo a stretch.
+  /// Pausing is fine. Going back, or looping, patches a score together
+  /// from more than one try.
+  bool get judgedWholeSong {
+    return !_wentBack && summary.judged == _timeline.moments.length;
+  }
 
   LoopRange? get loop => _loop;
 
@@ -320,6 +335,9 @@ class PracticeRun extends ChangeNotifier {
   /// can be dragged back and looked over. [play] wipes them from the
   /// count forward, which is the moment they stop being true.
   void seek(double timeMs) {
+    // Moving around before anything has been judged is only choosing
+    // where to start.
+    if (_marks.isNotEmpty) _wentBack = true;
     _positionMs = timeMs.clamp(restMs, lastMs).toDouble();
     _finished = false;
     _countIn = null;
@@ -353,8 +371,7 @@ class PracticeRun extends ChangeNotifier {
     _tailSweepIndex = null;
     _lastPassMarks = {};
     _nextPassMarks = {};
-    if (range != null &&
-        (_positionMs < restMs || _positionMs >= range.endMs)) {
+    if (range != null && (_positionMs < restMs || _positionMs >= range.endMs)) {
       _playing = false;
       _countIn = null;
       _positionMs = restMs.toDouble();
@@ -400,6 +417,7 @@ class PracticeRun extends ChangeNotifier {
   }
 
   void _step(double songMs) {
+    _slowestPlayed = math.min(scoredSpeed, _speed);
     _positionMs += songMs;
     final loop = _loop;
     if (loop != null) {
@@ -590,6 +608,9 @@ class PracticeRun extends ChangeNotifier {
     _sweepIndex = 0;
     _streak = 0;
     _bestStreak = 0;
+    _slowestPlayed = null;
+    // A fresh run can earn a Library score again.
+    _wentBack = false;
     _strayNotes = 0;
     _timingSumMs = 0;
     _timingCount = 0;

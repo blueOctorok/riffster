@@ -1,5 +1,37 @@
 # Changes
 
+## 2026-11-13 — Stage 4, second half: Library, originals, old tunes
+
+The Library opens from the rail. A part opened from a file is kept there by itself, with a Remove button on its card. A finished run through the whole song keeps a best score for each speed it was played at. Twelve riffs, three melodies, and three old tunes ship with the app for bass.
+
+- **Library store.** `lib/data/library_store.dart`. One small JSON file per song of yours under `<appSupport>/library/`, named from the title and instrument (`libraryIdOf`). Scores for every song live beside them in one `scores.json`. The songs that come with the app are Dart data (`lib/data/originals.dart`), not files on disk, so a user can never delete them by mistake. Saving a song with the same title on the same instrument replaces the file and keeps its scores. A damaged file is skipped, like the settings.
+- **When a score counts.** Only a run that judged every note and never went back: `PracticeRun.judgedWholeSong`. The speed it belongs to is `scoredSpeed`, the slowest the song ran during that score. Slowing for one hard bar and speeding up again still counts as the slow speed. A run started partway through, or one that seeks back to redo a stretch, keeps no Library score.
+- **The page.** `lib/screens/library_area.dart`. Groups: Your songs, Riffster originals, Old tunes. Cards show tempo, bar count, a one-line about, and up to three best scores (fastest first), or "NOT PLAYED YET". Only the instrument in hand is listed, so guitar opens empty until a guitar part is opened from a file.
+- **How the originals are written.** `lib/music/riff_text.dart` reads a line like `E1:.5 G1:.5 A1:1 | ...` into pitches and bars. The same placer that sits a melody on the neck picks the frets. Fractions are for triplets. A bar that does not add up to the beat count is a typing mistake and throws. The old tunes: Ode to Joy, Amazing Grace (3/4), Greensleeves (3/4). Count-in is still four beats even on the 3/4 tunes.
+
+Checked: 186 tests pass and the analyzer is clean. New tests cover the riff text, every built-in song sitting on the bass neck, the store on disk and in memory, scoredSpeed and judgedWholeSong, and the Library page (open a card, keep a score at 70%, skip a mid-song start, remove one of yours). Pictures are in `build/stage_previews/` (`screen_library_bass`, `_lower`, `_guitar`).
+
+Not checked: how the originals feel on the real bass, and the user's own file saved into Your songs from the Open dialog.
+
+The Windows zip was rebuilt the same day, dated 13 November 2026, 14 MB, so the download has the Library, the originals, and melody on bass.
+
+## 2026-11-13 — Stage 4, first half: parts, the placer, melody on bass
+
+Opening a file now sorts its parts by the instrument in hand, and on bass any other part can be played as a melody. The Library, the originals, and the old tunes followed the same day.
+
+- **The reader sends more.** `assets/gp_reader/reader.js` sends each part's tuning: the pitch of every open string, top line first. It used to send only a string count. It also sends every note. Before, a note on a seventh string was dropped, and so was every note of a voice or a keyboard, because those have no string to draw on. They are wanted now for their pitch and time. A note with no string is sent on string 0. Ties are followed through alphaTab's own link from a tied note to the note it lengthens, which also works for a part with no strings.
+- **What a part is.** `ImportedTrack.instrument` reads the tuning: four strings near a bass's low E is a bass, six near a guitar's is a guitar, anything else is null. The count alone is not enough, since a ukulele has four strings. A part tuned down a step still counts.
+- **The picker.** `lib/import/part_choices.dart` sorts the parts and `lib/widgets/part_picker.dart` shows them in up to three groups. On bass: "Written for bass", then "Play its melody on bass" with a Low and High switch, then "Cannot be played here". On guitar: "Written for guitar", then the rest, each saying why: "A bass part · switch to Bass to play it", "7 strings · not supported yet", "Not a guitar part". A five-string bass part reads "5 strings · not supported yet". It used to open on the six-line staff with guitar string names. A part in another tuning says so: "tuned D1 A1 D2 G2". The picker is skipped only for a file with one part, written for the instrument in hand. A bass part opened while on guitar used to switch the whole app to bass without a word, and now it cannot be chosen.
+- **The placer.** `lib/music/place_on_neck.dart` takes pitches and picks a string and fret for each, so the hand moves as little as possible. It weighs every way of playing the whole line and keeps the cheapest: moving the hand costs the most, crossing strings a little, and a small pull toward the nut settles ties. An open string makes a move cheaper, because the hand can travel while it rings. A C major scale comes out in first position with open D and G. An A minor pentatonic comes out as the box at the 5th fret. It works for bass and guitar and stops at fret 20. Scales, drills, and the generator are meant to use it too.
+- **Melody on bass.** `lib/music/melody_on_bass.dart`. A chord becomes its top note. The whole line moves by octaves to where the most notes fit the neck, so the key does not change. Low is the lowest octave that fits. High is the octave above, when that loses no notes. A note still off the neck is moved an octave by itself. The result is an ordinary song titled like "Night Drive — Lead guitar on bass": scored, slowed, and looped like any other. Nothing is sent anywhere, and the app only moves notes that are already in the user's file.
+- **One switch widget.** The Low and High switch and the Bass and Guitar switch are the same widget now, `lib/widgets/segment_switch.dart`.
+
+Checked: 159 tests pass and the analyzer is clean. New tests cover the placer, the melody rules, how parts are sorted, the picker on both instruments, and the tuning read from the reader's reply. `node tool/check_reader.cjs` runs `reader.js` outside the app against a small made-up score with a guitar, a bass, a five-string, a seven-string, and a keyboard. The test fixture was also read through the real hidden web view in a debug build, and its tuning arrived. Pictures of the picker and of a melody both ways are in `build/stage_previews/`.
+
+Not checked: the picker in the running window with one of the user's own files, and how a placed melody feels on the bass. The placer does not look at how much time there is between notes, so a slow line gets the same fingering as a fast one. That is worth a second look once a real melody has been played.
+
+The Windows zip was rebuilt with the rest of Stage 4 the same day.
+
 ## 2026-11-13 — Stage 3: the shell
 
 The app now has a frame around it. A rail runs down the left with the six areas, the instrument switch, and a chip that shows what the app is listening to. The app opens on Home.

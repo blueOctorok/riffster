@@ -2,8 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:riffster/app.dart';
+import 'package:riffster/data/library_item.dart';
+import 'package:riffster/data/library_store.dart';
 import 'package:riffster/data/settings_store.dart';
 import 'package:riffster/models/instrument.dart';
+import 'package:riffster/models/tab_note.dart';
+import 'package:riffster/models/tab_song.dart';
+import 'package:riffster/music/practice_run.dart';
 import 'package:riffster/theme/neck_theme.dart';
 import 'package:riffster/widgets/shell/app_area.dart';
 import 'package:riffster/widgets/stage/stage_view.dart';
@@ -19,6 +24,7 @@ Future<SettingsStore> _open(
   Instrument? instrument = Instrument.guitar,
   AppArea area = AppArea.songs,
   Size size = const Size(1264, 681),
+  LibraryStore? library,
 }) async {
   // The test font's letters are wide squares. In those, the wordmark
   // alone is wider than the rail, so the app is drawn in its own type.
@@ -28,7 +34,9 @@ Future<SettingsStore> _open(
   addTearDown(tester.view.resetPhysicalSize);
   addTearDown(tester.view.resetDevicePixelRatio);
   final store = SettingsStore.inMemory(instrument: instrument);
-  await tester.pumpWidget(RiffsterApp(store: store));
+  await tester.pumpWidget(
+    RiffsterApp(store: store, library: library ?? LibraryStore.inMemory()),
+  );
   // The app opens on Home, or on the chooser when no instrument is set.
   if (instrument != null && area != AppArea.home) await _go(tester, area);
   return store;
@@ -308,7 +316,8 @@ void main() {
 
     expect(_canGo(tester, AppArea.songs), isTrue);
     expect(_canGo(tester, AppArea.build), isTrue);
-    for (final area in [AppArea.practice, AppArea.create, AppArea.library]) {
+    expect(_canGo(tester, AppArea.library), isTrue);
+    for (final area in [AppArea.practice, AppArea.create]) {
       expect(_canGo(tester, area), isFalse, reason: area.label);
     }
 
@@ -373,4 +382,119 @@ void main() {
     expect(store.neck, mapleNeck);
     expect(find.text('Warm-up'), findsOneWidget);
   });
+
+  testWidgets('the Library lists what came with the app, and a card opens it', (
+    tester,
+  ) async {
+    await _open(tester, instrument: Instrument.bass, area: AppArea.library);
+
+    expect(find.text('RIFFSTER ORIGINALS'), findsOneWidget);
+    expect(find.text('YOUR SONGS'), findsNothing);
+    expect(find.byKey(const Key('staff')), findsNothing);
+
+    await tester.tap(find.byKey(const Key('library-low-road-bass')));
+    await tester.pumpAndSettle();
+
+    expect(_stage(tester).run.song.title, 'Low Road');
+    expect(_stage(tester).run.song.bars, hasLength(4));
+  });
+
+  testWidgets('a song played through shows its best score at that speed', (
+    tester,
+  ) async {
+    final library = LibraryStore.inMemory();
+    await _open(
+      tester,
+      instrument: Instrument.bass,
+      area: AppArea.library,
+      library: library,
+    );
+    await tester.tap(find.byKey(const Key('library-low-road-bass')));
+    await tester.pumpAndSettle();
+    final run = _stage(tester).run;
+
+    // Slowed for a while and then let go: the run was a slowed run.
+    run.speed = 0.7;
+    _playThrough(run, afterBars: 1, then: () => run.speed = 1);
+    await tester.pump();
+
+    expect(library.bestScores('low-road-bass'), [
+      (speedPercent: 70, onTimePercent: 100),
+    ]);
+    await _go(tester, AppArea.library);
+    expect(find.text('AT 70%'), findsOneWidget);
+    expect(find.text('100%'), findsOneWidget);
+    // Every other card still waits for its first run.
+    expect(find.text('NOT PLAYED YET'), findsWidgets);
+  });
+
+  testWidgets('a run started partway through keeps no score', (tester) async {
+    final library = LibraryStore.inMemory();
+    await _open(
+      tester,
+      instrument: Instrument.bass,
+      area: AppArea.library,
+      library: library,
+    );
+    await tester.tap(find.byKey(const Key('library-low-road-bass')));
+    await tester.pumpAndSettle();
+    final run = _stage(tester).run;
+
+    run.seek(run.song.bars[2].startMs.toDouble());
+    _playThrough(run);
+    await tester.pump();
+
+    expect(run.finished, isTrue);
+    expect(library.bestScores('low-road-bass'), isEmpty);
+  });
+
+  testWidgets('the Library shows only this instrument, and a song of your '
+      'own can be removed', (tester) async {
+    final library = LibraryStore.inMemory();
+    library.save(
+      const TabSong(
+        title: 'My guitar part',
+        tempoBpm: 90,
+        notes: [
+          TabNote(timeMs: 0, string: 1, fret: 0, durationMs: 500, midi: 64),
+        ],
+      ).withCommonTimeBars(),
+    );
+    await _open(tester, area: AppArea.library, library: library);
+
+    // Everything that comes with the app is for bass.
+    expect(find.text('YOUR SONGS'), findsOneWidget);
+    expect(find.text('RIFFSTER ORIGINALS'), findsNothing);
+    expect(find.text('My guitar part'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('remove-my-guitar-part-guitar')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('My guitar part'), findsNothing);
+    expect(find.textContaining('Nothing for guitar yet'), findsOneWidget);
+    expect(
+      library.items.where((item) => item.source == SongSource.yours),
+      isEmpty,
+    );
+  });
+}
+
+/// Plays every note of [run] on time, from where it stands to the end.
+/// [then] is called once, after [afterBars] bars have gone by.
+void _playThrough(PracticeRun run, {int? afterBars, VoidCallback? then}) {
+  final moments = run.timeline.moments;
+  var next = run.timeline.firstAtOrAfter(run.positionMs);
+  var pending = then;
+  run.play();
+  while (run.playing) {
+    run.advance(const Duration(milliseconds: 8));
+    while (next < moments.length && run.positionMs >= moments[next].timeMs) {
+      run.pluck(moments[next].notes.first.midi, latencyMs: 0);
+      next++;
+    }
+    if (pending != null && run.positionMs >= run.song.bars[afterBars!].endMs) {
+      pending();
+      pending = null;
+    }
+  }
 }

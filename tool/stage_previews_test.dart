@@ -16,11 +16,15 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:riffster/app.dart';
 import 'package:riffster/audio/guitar_ear.dart';
 import 'package:riffster/data/demo_song.dart';
+import 'package:riffster/data/library_item.dart';
+import 'package:riffster/data/library_store.dart';
 import 'package:riffster/data/settings_store.dart';
+import 'package:riffster/import/open_guitar_pro.dart';
 import 'package:riffster/models/instrument.dart';
 import 'package:riffster/models/tab_song.dart';
 import 'package:riffster/music/chord_catalog.dart';
 import 'package:riffster/music/chord_lane.dart';
+import 'package:riffster/music/melody_on_bass.dart';
 import 'package:riffster/music/practice_run.dart';
 import 'package:riffster/music/timing_check.dart';
 import 'package:riffster/theme/neck_theme.dart';
@@ -34,6 +38,7 @@ import 'package:riffster/widgets/stage/stage_metrics.dart';
 import 'package:riffster/widgets/stage/stage_view.dart';
 
 import '../test/support/app_fonts.dart';
+import '../test/support/sample_score.dart';
 
 const _frame = Duration(milliseconds: 8);
 
@@ -165,6 +170,7 @@ Future<PracticeRun?> _openApp(
   Instrument? instrument,
   AppArea area = AppArea.songs,
   NeckTheme neck = ebonyNeck,
+  LibraryStore? library,
 }) async {
   await tester.binding.setSurfaceSize(_window);
   final store = SettingsStore.inMemory(instrument: instrument)..neck = neck;
@@ -173,7 +179,11 @@ Future<PracticeRun?> _openApp(
       // A new key each time, so one preview's app is never reused for
       // the next.
       key: _shot,
-      child: RiffsterApp(key: UniqueKey(), store: store),
+      child: RiffsterApp(
+        key: UniqueKey(),
+        store: store,
+        library: library ?? LibraryStore.inMemory(),
+      ),
     ),
   );
   await tester.pump();
@@ -182,7 +192,9 @@ Future<PracticeRun?> _openApp(
   if (instrument == null || area == AppArea.home) return null;
   await tester.tap(find.byKey(Key('area-${area.name}')));
   await tester.pumpAndSettle();
-  return tester.widget<StageView>(find.byType(StageView)).run;
+  final stage = find.byType(StageView);
+  // The Library has no stage.
+  return stage.evaluate().isEmpty ? null : tester.widget<StageView>(stage).run;
 }
 
 /// The input panel alone, in the room, hearing [hertz] on a cable. No
@@ -235,6 +247,44 @@ Future<void> _panelShot(WidgetTester tester, String name, double? hertz) async {
       ),
     ),
   );
+  await tester.pumpAndSettle();
+  await _snap(tester, name);
+}
+
+/// The part picker over the room, as a player of [playing] sees it
+/// after choosing a file with every kind of part in it.
+Future<void> _pickerShot(
+  WidgetTester tester,
+  String name,
+  Instrument playing,
+) async {
+  await tester.binding.setSurfaceSize(_window);
+  await tester.pumpWidget(
+    RepaintBoundary(
+      key: _shot,
+      child: MaterialApp(
+        key: UniqueKey(),
+        debugShowCheckedModeBanner: false,
+        theme: riffsterTheme(),
+        home: Builder(
+          builder: (context) => Scaffold(
+            body: Room(
+              child: TextButton(
+                onPressed: () => choosePart(
+                  context,
+                  sampleScore(),
+                  playing: playing,
+                  fallbackTitle: 'file',
+                ),
+                child: const Text('open'),
+              ),
+            ),
+          ),
+        ),
+      ),
+    ),
+  );
+  await tester.tap(find.text('open'));
   await tester.pumpAndSettle();
   await _snap(tester, name);
 }
@@ -302,6 +352,22 @@ void main() {
       neck: ebonyNeck,
       arrange: (run) => _playTo(run, 2000, playing: const {1: null}),
     );
+
+    // A lead guitar line from a file, moved onto the bass both ways.
+    final score = sampleScore();
+    final lead = score.tracks.firstWhere((part) => part.name == 'Lead guitar');
+    for (final register in Register.values) {
+      await _stageShot(
+        tester,
+        'bass_melody_${register.name}',
+        song: score.toMelodyOnBass(
+          lead,
+          fallbackTitle: 'file',
+          register: register,
+        ),
+        neck: ebonyNeck,
+      );
+    }
   }, variant: _onWindows);
 
   testWidgets('screen previews', (tester) async {
@@ -367,6 +433,42 @@ void main() {
     await tester.tap(find.byKey(const Key('input-chip')));
     await tester.pumpAndSettle();
     await _snap(tester, 'screen_input_panel');
+
+    // The Library after a part has been opened from a file and a few
+    // songs have been played through, some of them slowed.
+    final library = LibraryStore.inMemory();
+    final score = sampleScore();
+    final opened = score.toMelodyOnBass(
+      score.tracks.firstWhere((part) => part.name == 'Lead guitar'),
+      fallbackTitle: 'file',
+      register: Register.high,
+    );
+    library.save(opened);
+    library.recordRun(libraryIdOf(opened), speed: 0.7, accuracy: 0.88);
+    library.recordRun('low-road-bass', speed: 1, accuracy: 0.92);
+    library.recordRun('low-road-bass', speed: 0.8, accuracy: 1);
+    library.recordRun('low-road-bass', speed: 0.6, accuracy: 1);
+    library.recordRun('ode-to-joy-bass', speed: 0.5, accuracy: 0.74);
+    await _openApp(
+      tester,
+      instrument: Instrument.bass,
+      area: AppArea.library,
+      library: library,
+    );
+    await _snap(tester, 'screen_library_bass');
+    await tester.drag(find.text('Library').last, const Offset(0, -420));
+    await tester.pumpAndSettle();
+    await _snap(tester, 'screen_library_bass_lower');
+
+    await _openApp(
+      tester,
+      instrument: Instrument.guitar,
+      area: AppArea.library,
+    );
+    await _snap(tester, 'screen_library_guitar');
+
+    await _pickerShot(tester, 'part_picker_bass', Instrument.bass);
+    await _pickerShot(tester, 'part_picker_guitar', Instrument.guitar);
 
     // The panel with a cable in: at rest, a D string that has slipped,
     // and a G in tune.
