@@ -19,6 +19,7 @@ import '../models/instrument.dart';
 import '../models/tab_song.dart';
 import '../music/chord_catalog.dart';
 import '../music/chord_lane.dart';
+import '../music/scale_line.dart';
 import '../music/practice_run.dart';
 import '../theme/neck_theme.dart';
 import '../theme/riffster_theme.dart';
@@ -26,6 +27,7 @@ import '../widgets/chord_lane_bar.dart';
 import '../widgets/chord_palette.dart';
 import '../widgets/chord_picker.dart';
 import '../widgets/finger_colors.dart';
+import '../widgets/practice/line_choices.dart';
 import '../widgets/practice/feedback_strip.dart';
 import '../widgets/practice/run_summary_card.dart';
 import '../widgets/practice/timing_check_dialog.dart';
@@ -64,11 +66,17 @@ class _AppShellState extends State<AppShell>
   final _ear = GuitarEar();
   late final Ticker _ticker;
 
-  /// The song and the chord lane each keep their own run. Leaving the
-  /// song for the chord book and coming back finds its place, its
-  /// marks, and its loop exactly as they were.
+  /// The song, the chord lane, and the practice line each keep their
+  /// own run. Leaving one and coming back finds its place, its marks,
+  /// and its loop exactly as they were.
   late final PracticeRun _songRun;
   final _laneRun = PracticeRun(songFromLane(const []));
+  late final PracticeRun _practiceRun;
+
+  /// The root and the shape of the line on the Practice stage. E major
+  /// until the player picks something else. Both instruments have an E.
+  var _pitchClass = 4;
+  var _lineKind = LineKind.major;
 
   /// The ticker reports time since it started. The run wants the time
   /// since the last frame, so the last reading is kept to subtract.
@@ -120,16 +128,24 @@ class _AppShellState extends State<AppShell>
   /// The pitch that is ringing, for the tuner. Null when nothing is.
   final _tone = ValueNotifier<double?>(null);
 
-  /// Build is the chord book, and it plays the lane. Every other area
-  /// plays the song.
+  /// Build plays the lane. Practice plays the scale or arpeggio.
+  /// Everything else plays the song.
   bool get _building => _area == AppArea.build;
-  PracticeRun get _run => _building ? _laneRun : _songRun;
+  bool get _practicing => _area == AppArea.practice;
+  PracticeRun get _run => switch (_area) {
+    AppArea.build => _laneRun,
+    AppArea.practice => _practiceRun,
+    _ => _songRun,
+  };
   SettingsStore get _store => widget.store;
   LibraryStore get _library => widget.library;
 
   /// Only Songs and Build have a stage. Nothing can be played or
   /// looped anywhere else.
-  bool get _onStage => _area == AppArea.songs || _area == AppArea.build;
+  bool get _onStage =>
+      _area == AppArea.songs ||
+      _area == AppArea.build ||
+      _area == AppArea.practice;
 
   bool get _canPlay {
     return _onStage && !_opening && _run.timeline.moments.isNotEmpty;
@@ -147,11 +163,20 @@ class _AppShellState extends State<AppShell>
   @override
   void initState() {
     super.initState();
-    _songRun = PracticeRun(warmUpFor(_store.instrument ?? Instrument.bass));
+    final instrument = _store.instrument ?? Instrument.bass;
+    _songRun = PracticeRun(warmUpFor(instrument));
+    _practiceRun = PracticeRun(
+      practiceLine(
+        instrument: instrument,
+        pitchClass: _pitchClass,
+        kind: _lineKind,
+      ),
+    );
     _ticker = createTicker(_onTick);
     _songRun.addListener(_syncTicker);
     _songRun.addListener(_keepBestScore);
     _laneRun.addListener(_syncTicker);
+    _practiceRun.addListener(_syncTicker);
     // Widget tests must not open the microphone or the speaker.
     if (Platform.environment.containsKey('FLUTTER_TEST')) return;
     _ear.instrument = _run.song.instrument;
@@ -180,6 +205,7 @@ class _AppShellState extends State<AppShell>
     _ticker.dispose();
     _songRun.dispose();
     _laneRun.dispose();
+    _practiceRun.dispose();
     _level.dispose();
     _tone.dispose();
     _reader.dispose();
@@ -334,6 +360,28 @@ class _AppShellState extends State<AppShell>
     _ear.instrument = _run.song.instrument;
   }
 
+  /// Puts the current root and shape on the Practice stage, for the
+  /// instrument the song is already using.
+  void _loadPractice() {
+    _practiceRun.load(
+      practiceLine(
+        instrument: _songRun.song.instrument,
+        pitchClass: _pitchClass,
+        kind: _lineKind,
+      ),
+    );
+    _syncTicker();
+    _ear.instrument = _run.song.instrument;
+  }
+
+  void _chooseLine({int? pitchClass, LineKind? kind}) {
+    setState(() {
+      if (pitchClass != null) _pitchClass = pitchClass;
+      if (kind != null) _lineKind = kind;
+    });
+    _loadPractice();
+  }
+
   /// Puts [song] on the stage. It does not change which area is open.
   void _loadSong(TabSong song) {
     _songRun.load(song);
@@ -377,6 +425,7 @@ class _AppShellState extends State<AppShell>
   void _chooseInstrument(Instrument instrument) {
     _store.instrument = instrument;
     _loadSong(warmUpFor(instrument));
+    _loadPractice();
     // The chord book is guitar shapes, so a switch to bass while it is
     // open has nowhere to stay.
     if (!_area.readyFor(instrument)) _go(AppArea.songs);
@@ -641,7 +690,7 @@ class _AppShellState extends State<AppShell>
           Row(
             children: [
               Expanded(child: _SongHeading(song: song)),
-              if (!_building) ...[
+              if (!_building && !_practicing) ...[
                 const SizedBox(width: 20),
                 OutlinedButton(
                   onPressed: _opening ? null : _open,
@@ -653,6 +702,15 @@ class _AppShellState extends State<AppShell>
             ],
           ),
           const SizedBox(height: 16),
+          if (_practicing) ...[
+            LineChoices(
+              pitchClass: _pitchClass,
+              kind: _lineKind,
+              onPitchClass: (pitchClass) => _chooseLine(pitchClass: pitchClass),
+              onKind: (kind) => _chooseLine(kind: kind),
+            ),
+            const SizedBox(height: 14),
+          ],
           if (_building) ..._chordBook(),
           _stage(run),
           const SizedBox(height: 16),

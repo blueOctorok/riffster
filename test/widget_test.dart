@@ -317,9 +317,8 @@ void main() {
     expect(_canGo(tester, AppArea.songs), isTrue);
     expect(_canGo(tester, AppArea.build), isTrue);
     expect(_canGo(tester, AppArea.library), isTrue);
-    for (final area in [AppArea.practice, AppArea.create]) {
-      expect(_canGo(tester, area), isFalse, reason: area.label);
-    }
+    expect(_canGo(tester, AppArea.practice), isTrue);
+    expect(_canGo(tester, AppArea.create), isFalse);
 
     // Home has no stage, so Space has nothing to start.
     await tester.sendKeyEvent(LogicalKeyboardKey.space);
@@ -476,6 +475,32 @@ void main() {
       library.items.where((item) => item.source == SongSource.yours),
       isEmpty,
     );
+  });
+
+  testWidgets('Practice plays a scale, and a new choice replaces it', (
+    tester,
+  ) async {
+    await _open(tester, instrument: Instrument.bass, area: AppArea.practice);
+
+    expect(_stage(tester).run.song.title, 'E major');
+    expect(_stage(tester).run.song.notes.first.midi, 28);
+
+    await tester.tap(find.byKey(const Key('root-A')));
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('line-minorPentatonic')));
+    await tester.pump();
+
+    final song = _stage(tester).run.song;
+    expect(song.title, 'A minor pentatonic');
+    // The open A string.
+    expect(song.notes.first.midi, 33);
+    expect(song.notes.last.midi, 33);
+    // The blue note of the blues scale is not in the pentatonic.
+    expect(song.notes.map((note) => note.midi), isNot(contains(39)));
+
+    // The song on Songs is untouched.
+    await _go(tester, AppArea.songs);
+    expect(_stage(tester).run.song.title, 'Warm-up');
   });
 }
 

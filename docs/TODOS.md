@@ -75,7 +75,7 @@ Built on 2026-11-13. Not yet approved by the user.
 - [ ] The user opens one of their own files on bass, picks a part as a melody both ways, and says how the fingering feels.
 - [ ] After that: decide whether the placer should look at the time between notes. Today a slow line and a fast one get the same fingering.
 - [ ] Decide whether Low and High should also be a switch on the stage. Today it is chosen in the picker, so changing it means opening the file again.
-- [x] The download zip was rebuilt on 2026-11-13 with Stage 4. The page says 13 November 2026, 14 MB.
+- [x] The download zip was rebuilt on 2026-11-13 with Stage 4. Replaced later the same day by the Stage 5 build. The page says 13 November 2026, 14 MB.
 - [x] Library: one JSON file per song of yours under `<appSupport>/library/`, scores for all songs in one `scores.json`, best on-time percent kept per speed. A part opened from a file is saved by itself, with Remove on the card. A score counts only when the run judged every note and never went back; it is filed under the slowest speed used. Settled with the user 2026-11-13. Built the same day.
 - [x] Riffster originals: 12 bass riffs and 3 bass melodies in `lib/data/originals.dart`, written as riff text and placed by the placer. Built 2026-11-13.
 - [x] Old tunes: Ode to Joy, Amazing Grace (3/4), Greensleeves (3/4), same file. Built 2026-11-13.
@@ -84,12 +84,16 @@ Built on 2026-11-13. Not yet approved by the user.
 
 ### Stage 5: Practice
 
-- [ ] Scales and arpeggios by rule, as scored runs.
+Scales and arpeggios are under way. Stay on the current model until the drum groove. Switch to Claude Fable 5.2 for that item only, then switch back. Switch to Fable again for all of Stage 8.
+
+- [x] Scales by rule, one octave up and back down, placed on the neck and played as a scored run. Major, minor, both pentatonics, and blues. Practice opens from the rail. Built 2026-11-13.
+- [x] Arpeggios the same way, on the same screen: major, minor, 7, maj7, m7. Built 2026-11-13.
+- [x] The download zip was rebuilt the same day with Practice. The page still says 13 November 2026, 14 MB.
 - [ ] Drills with knobs: key, length, note value, difficulty.
 - [ ] Find the note.
 - [ ] Trouble spots: one tap loops the bars with misses at 70 percent and steps the speed up after three clean passes.
 - [ ] Days in a row and minutes played on Home. No trophies.
-- [ ] Drum groove made in code and mixed in the native audio thread. Muted when the room mic is the source.
+- [ ] **Switch to Claude Fable 5.2 before starting this, then switch back.** Drum groove made in code and mixed in the native audio thread. The playhead follows the audio clock. Muted when the room mic is the source.
 
 ### Stage 6: Build for bass
 
@@ -107,6 +111,8 @@ Built on 2026-11-13. Not yet approved by the user.
 - [ ] A legal check on "inspired by" before money changes hands.
 
 ### Stage 8: Paid
+
+**Switch to Claude Fable 5.2 for this whole stage, then switch back.**
 
 - [ ] `riffster.xyz` generate route holding the key, sign-in, payment. The app swaps the test key for the site.
 

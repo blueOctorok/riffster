@@ -1,5 +1,17 @@
 # Changes
 
+## 2026-11-13 — Stage 5 started: scales and arpeggios
+
+Practice opens from the rail. A root, a scale, and an arpeggio put one octave on the stage, up and back down, and the run scores it like a song. The line starts on the lowest root the neck has, so an E scale on bass starts on the open E and a C scale starts a minor third higher. The same placer that sits a melody picks the frets.
+
+Major, minor, both pentatonics, blues, and the five arpeggios (major, minor, 7, maj7, m7). Drills, Find the note, trouble spots, and the streak on Home are still ahead. The drum groove waits for a switch to Claude Fable 5.2, written into the plan and `TODOS.md`. Stage 8 waits for the same switch.
+
+The Windows zip was rebuilt the same day, still 13 November 2026, 14 MB, so the download has Practice.
+
+## 2026-11-13 — The mark stays gold
+
+Tried painting the husky's blue eye into the mark. It broke the drawing: the eye stopped reading as part of the gold line work. The mark, the Windows icon, and the site favicon are back to gold lines and the pink tongue. Both eyes match.
+
 ## 2026-11-13 — Stage 4, second half: Library, originals, old tunes
 
 The Library opens from the rail. A part opened from a file is kept there by itself, with a Remove button on its card. A finished run through the whole song keeps a best score for each speed it was played at. Twelve riffs, three melodies, and three old tunes ship with the app for bass.
