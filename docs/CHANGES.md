@@ -1,5 +1,25 @@
 # Changes
 
+## 2026-11-12 — The red X waits until the note has gone
+
+A wrong sound near an upcoming note was marked on that note at once, so the rose X flashed on as the circle met the line. Playing the right note a moment later wiped it, which felt strict. A wrong sound is now only an extra note. The X is drawn when the note's window closes with nothing having saved it, which is after the circle has left the line.
+
+## 2026-11-12 — One timing, the circle
+
+Played on the bass, the circle window felt right, so Easy, Medium, and Hard are gone. There is one on-time window, 120 ms of song time: strike as the gold line touches the circle, or while the line is anywhere on it. The Timing buttons are off the practice screen, and a saved choice from before is ignored.
+
+## 2026-11-12 — The circle is the on-time window
+
+A perfect run at 50% speed was still told it was about 62 ms early. The window was 120 real milliseconds, so slowing the song shrank it on screen: at half speed only the middle of the circle counted, and striking as the line touched the circle was early.
+
+On time is now song time, the clock the notes scroll on. Medium is the circle. Striking as the gold line touches it is on time, and so is striking while the line is anywhere on it. Easy reaches past the circle and Hard asks for the middle, same as before. The gold band stays the width of that window when the speed changes, and the line before Play says to play as the line touches the note.
+
+The timing gauge says "On the beat" for any strike inside the window. The number it shows past that is how far beyond the circle, not how far from the centre. The end-of-run card does the same, so a run that hit every note is not told to let the note come to the line.
+
+## 2026-11-12 — A clip shows that it is recording
+
+Record clip only changed its words to Save clip, so after Restart it was unclear whether the tape was still rolling. Restart and Play only move the song. While a clip is open, the status line is now rose and counts the seconds, and it says restart does not stop it. Save clip is a rose button for that same stretch. This is the debug window only. The download has no recorder, so the zip is unchanged.
+
 ## 2026-11-12 — Riffster has a face
 
 The brand mark is a line drawing of the owner's dog: pointed ears, cheek fluff, two eyebrow dots, a grin, and a pink tongue. It is drawn in the app's gold on a dark brown tile. The tongue is the only other color.

@@ -22,11 +22,11 @@ Since 2026-11-11 this section is the order of work. The numbered sections furthe
 - [x] Hits are seen with a real instrument plugged in. The user played the bass warm-up on 2026-11-12: sound works and notes are detected well.
 - [x] On time widened from 80 to 120 ms after that session, so a note touching the gold line at full speed is on time.
 - [x] The Heard box no longer says "Miss" for a sound that matched no note. It changes only when a note counts.
+- [x] A wrong sound no longer puts the rose X on the note it is near. The X appears when that note's window closes with nothing having saved it, which is after the circle has left the line.
 - [x] A ring on every string at the playhead, the size of a note when it is due. The line before Play says "play each note as it fills its ring". Approved as an idea on 2026-11-12.
 - [x] The user played the 120 ms window. It felt fair and still strict: 82% on time, no misses, about 88 ms early.
-- [x] Easy, Medium, and Hard timing, saved, at the bottom of the practice screen. Medium is 120 ms. Easy is 200. Hard is 70.
-- [ ] The user tries Easy and says whether it feels loose enough.
-- [ ] Decide whether the on-time window should grow when the song is slowed. Today it stays 120 real milliseconds, so at 50% a pluck on the note's leading edge is still early.
+- [x] Easy, Medium, and Hard were tried and removed the same day. One window remains: the circle, 120 ms of song time.
+- [x] The on-time window is song time, decided 2026-11-12. Slowing the song no longer shrinks the target. Medium is the circle: a strike as the line touches it is on time, and so is a strike anywhere on the circle. The end-of-run line only calls a run early or late once the average is outside that circle.
 - [ ] Find where the extra sounds come from (likely a ringing string read again an octave up), using recorded clips. Until then, decide whether the end-of-run line about wrong or extra notes should stay.
 - [ ] Smoothness is checked with Flutter's performance overlay while a fast line plays.
 
@@ -37,7 +37,7 @@ Built on 2026-11-11. The boxes still open need a bass plugged in.
 - [x] New pluck detector: range from the instrument (bass about 35 to 420 Hz), pluck time split from pitch, a pitch change with no silence is a new note.
 - [x] Tests with made-up waves: low E reads E1 under a louder overtone, two back-to-back notes give two plucks, pluck time within 10 ms.
 - [x] A debug-only Record clip button saves what the cable heard, with the notes on the stage as its written answer. A test scores the detector against every clip and fails if one is heard worse than before.
-- [ ] Record the clips on the user's bass: each open string, fret 12 on each, a slow line, and a fast line with no gaps. Fix each `.txt` if what was played differs from the stage. The Record clip button needs the app started with `flutter run -d windows` from the project and an open input. The order asked for on 2026-11-12, one clip each: (1) open E A D G, answer `E1 A1 D2 G2`; (2) fret 12 on E A D G, answer `E2 A2 D3 G3`; (3) the warm-up as written; (4) the warm-up fast with no gaps. Clips 1 and 2 are saved with the warm-up as their answer, so their `.txt` files must be rewritten.
+- [ ] Record the clips on the user's bass: each open string, fret 12 on each, a slow line, and a fast line with no gaps. Fix each `.txt` if what was played differs from the stage. The Record clip button needs the app started with `flutter run -d windows` from the project and an open input. While a clip is open the status line counts the seconds in rose and says restart does not stop it. The order asked for on 2026-11-12, one clip each: (1) open E A D G, answer `E1 A1 D2 G2`; (2) fret 12 on E A D G, answer `E2 A2 D3 G3`; (3) the warm-up as written; (4) the warm-up fast with no gaps. Clips 1 and 2 are saved with the warm-up as their answer, so their `.txt` files must be rewritten.
 - [ ] Tune the two detector thresholds (`_floor`, `_jump` in `pluck_detector.dart`) against those clips.
 - [ ] The detector runs off the screen thread. Left on the main thread on purpose: it measured 1 to 20 ms of work per second of sound. Move it only if the performance overlay shows dropped frames. Waiting on the user's OK for this change of plan.
 - [ ] On the bass: open E, A, D, G and fret 12 on each show the right name.

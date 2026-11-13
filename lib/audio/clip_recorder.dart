@@ -27,9 +27,18 @@ class ClipRecorder {
 
   BytesBuilder? _sound;
 
+  /// When this take started. The bar counts up from it, so a restart of
+  /// the song cannot be mistaken for the recording having stopped.
+  DateTime? _started;
+
   bool get recording => _sound != null;
 
-  void start() => _sound = BytesBuilder(copy: false);
+  DateTime? get started => _started;
+
+  void start() {
+    _sound = BytesBuilder(copy: false);
+    _started = DateTime.now();
+  }
 
   /// The next chunk of raw 16-bit sound. Dropped unless recording.
   void add(Uint8List bytes) => _sound?.add(bytes);
@@ -43,6 +52,7 @@ class ClipRecorder {
   }) async {
     final sound = _sound!.takeBytes();
     _sound = null;
+    _started = null;
     await Directory(folder).create(recursive: true);
     await File('$folder/$name.wav').writeAsBytes(
       wavBytes(sound, sampleRate: sampleRate),

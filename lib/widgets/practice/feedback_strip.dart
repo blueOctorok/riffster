@@ -36,7 +36,7 @@ class FeedbackStrip extends StatelessWidget {
               const _Gap(),
               _TimingGauge(
                 timingMs: run.lastTimingMs,
-                onTimeMs: run.timingFeel.onTimeMs,
+                onTimeMs: onTimeMs,
               ),
               const _Gap(),
               _Figure(
@@ -199,7 +199,7 @@ class _TimingGauge extends StatelessWidget {
           ),
           const SizedBox(height: 5),
           Text(
-            _words(timing),
+            _words(timing, window),
             style: RiffText.label.copyWith(
               color: color,
               fontFeatures: const [FontFeature.tabularFigures()],
@@ -210,11 +210,14 @@ class _TimingGauge extends StatelessWidget {
     );
   }
 
-  static String _words(double? timing) {
+  /// Inside the window the strike met the circle, so it gets no number.
+  /// Past it, the number is how far beyond the circle, not how far from
+  /// the centre. Sixty milliseconds inside the note is not "early".
+  static String _words(double? timing, int window) {
     if (timing == null) return '–';
-    final ms = timing.round();
-    if (ms == 0) return 'On the beat';
-    return '${ms.abs()} ms ${ms < 0 ? 'early' : 'late'}';
+    final past = timing.abs() - window;
+    if (past <= 0) return 'On the beat';
+    return '${past.round()} ms ${timing < 0 ? 'early' : 'late'}';
   }
 }
 

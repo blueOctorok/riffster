@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
@@ -23,6 +25,7 @@ class InputBar extends StatelessWidget {
     required this.measuredDelayMs,
     required this.onTimingCheck,
     this.clipRecording = false,
+    this.clipStarted,
     this.onClip,
   });
 
@@ -51,6 +54,9 @@ class InputBar extends StatelessWidget {
   /// The clip recorder is a tool for building the app. [onClip] is
   /// null outside a debug build, and the button is not shown.
   final bool clipRecording;
+
+  /// When the open take began. Null unless [clipRecording] is true.
+  final DateTime? clipStarted;
   final VoidCallback? onClip;
 
   @override
@@ -73,21 +79,32 @@ class InputBar extends StatelessWidget {
         ),
         const SizedBox(width: 14),
         Expanded(
-          child: Text(
-            _statusLabel,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: RiffText.label,
-          ),
+          child: clipRecording && clipStarted != null
+              ? _RecordingLine(started: clipStarted!)
+              : Text(
+                  _statusLabel,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: RiffText.label,
+                ),
         ),
         const SizedBox(width: 8),
         // Both need an open input. With none, the status line is a
         // long instruction and gets the room.
         if (listening && onClip != null)
-          TextButton(
-            onPressed: onClip,
-            child: Text(clipRecording ? 'Save clip' : 'Record clip'),
-          ),
+          clipRecording
+              ? FilledButton(
+                  onPressed: onClip,
+                  style: FilledButton.styleFrom(
+                    backgroundColor: RiffColors.miss,
+                    foregroundColor: RiffColors.cream,
+                  ),
+                  child: const Text('Save clip'),
+                )
+              : TextButton(
+                  onPressed: onClip,
+                  child: const Text('Record clip'),
+                ),
         if (listening)
           Tooltip(
             message: canMonitor
@@ -147,6 +164,65 @@ class InputBar extends StatelessWidget {
             ? '$irigSpeaker is connected. Turn iRig on, or plug in the Rocksmith cable.'
             : 'Inputs are off. Plug in the Rocksmith cable, or turn the mic on.',
     };
+  }
+}
+
+/// A rose line that counts up for as long as a clip is open.
+///
+/// Restart and Play only move the song. The count is what shows the
+/// tape is still rolling through both.
+class _RecordingLine extends StatefulWidget {
+  const _RecordingLine({required this.started});
+
+  final DateTime started;
+
+  @override
+  State<_RecordingLine> createState() => _RecordingLineState();
+}
+
+class _RecordingLineState extends State<_RecordingLine> {
+  Timer? _tick;
+
+  @override
+  void initState() {
+    super.initState();
+    _tick = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted) setState(() {});
+    });
+  }
+
+  @override
+  void dispose() {
+    _tick?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final seconds = DateTime.now().difference(widget.started).inSeconds;
+    return Row(
+      children: [
+        const DecoratedBox(
+          decoration: BoxDecoration(
+            color: RiffColors.miss,
+            shape: BoxShape.circle,
+          ),
+          child: SizedBox.square(dimension: 8),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            'Recording · ${seconds}s. Restart does not stop this.',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: RiffText.label.copyWith(
+              color: RiffColors.miss,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+      ],
+    );
   }
 }
 

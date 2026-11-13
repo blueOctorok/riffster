@@ -196,10 +196,12 @@ class StagePainter extends CustomPainter {
   }
 
   /// A faint band around the playhead, exactly as wide as "on time".
-  /// A note whose center is inside it when you pluck is a hit.
+  /// It is drawn in song time, so it stays the width of the circle when
+  /// the song is slowed. A note whose centre is inside it is a hit, which
+  /// includes the moment the circle first touches the line.
   void _paintOnTimeBand(Canvas canvas) {
     final x = metrics.playheadX;
-    final half = run.timingFeel.onTimeMs * run.speed / 1000 * metrics.pixelsPerSecond;
+    final half = onTimeMs / 1000 * metrics.pixelsPerSecond;
     final warmth = _streakWarmth;
     final band = RRect.fromLTRBR(
       x - half,
@@ -402,9 +404,9 @@ class StagePainter extends CustomPainter {
     }
   }
 
-  /// A ring on every string where it crosses the playhead. It is the
-  /// size of a note at the moment the note is due, so "when do I pluck"
-  /// has an answer the eye can use: when the note fills its ring.
+  /// A ring on every string where it crosses the playhead, the size of
+  /// the note. The strike is as the circle meets the line, and the ring
+  /// is there so that meeting is easy to see.
   void _paintTargets(Canvas canvas) {
     // A little shade inside makes the ring read as a seat in the board.
     final seat = Paint()
@@ -543,7 +545,7 @@ class StagePainter extends CustomPainter {
   /// "smoothstep": slow, fast, slow, so the swell starts and ends gently.
   double _nearness(double timeMs) {
     final ahead = timeMs - _position;
-    final reach = ahead >= 0 ? run.timeline.beatMs : sameBeatMs * run.speed;
+    final reach = ahead >= 0 ? run.timeline.beatMs : sameBeatMs.toDouble();
     final linear = (1 - ahead.abs() / reach).clamp(0.0, 1.0);
     return linear * linear * (3 - 2 * linear);
   }
@@ -831,7 +833,7 @@ class StagePainter extends CustomPainter {
         !run.playing && !run.finished && _position <= run.restMs + 1;
     if (!atRest || run.timeline.moments.isEmpty) return;
     final hint = ink.text(
-      'Press Space, then play each note as it fills its ring',
+      'Press Space, then play each note as the line touches it',
       color: neck.ink.withValues(alpha: 0.5),
       size: 20,
       family: RiffFonts.display,

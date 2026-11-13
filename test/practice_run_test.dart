@@ -72,7 +72,8 @@ void main() {
     expect(run.lastMark, isNull);
     expect(run.heardMidi, isNull);
     expect(run.strayNotes, 1);
-    expect(run.summary.missed, 1);
+    // The note is still open. The X waits until the bubble has gone.
+    expect(run.summary.missed, 0);
 
     _wait(run, 40);
     run.pluck(60, latencyMs: 0);
@@ -110,23 +111,6 @@ void main() {
     expect(run.lastTimingMs, closeTo(30, 0.01));
     expect(run.summary.missed, 0);
     expect(run.strayNotes, 1);
-  });
-
-  test('easy counts a loose note as on time, and hard does not', () {
-    final easy = PracticeRun(_fourNotes())
-      ..timingFeel = TimingFeel.easy
-      ..play();
-    // 160 ms before the note: inside Easy, outside Hard and Medium.
-    _wait(easy, 2000 - 160);
-    easy.pluck(60, latencyMs: 0);
-    expect(easy.lastMark, ScoreMark.hit);
-
-    final hard = PracticeRun(_fourNotes())
-      ..timingFeel = TimingFeel.hard
-      ..play();
-    _wait(hard, 2000 - 160);
-    hard.pluck(60, latencyMs: 0);
-    expect(hard.lastMark, ScoreMark.early);
   });
 
   test('while paused, the strip names a sound and gives no verdict', () {
@@ -179,6 +163,21 @@ void main() {
     expect(run.summary.missed, 1);
     expect(run.streak, 0);
     expect(run.bestStreak, 1);
+  });
+
+  test('a wrong pitch marks the note only once its window has closed', () {
+    final run = PracticeRun(_fourNotes())..play();
+
+    _wait(run, 2000);
+    run.pluck(72, latencyMs: 0);
+    expect(run.summary.missed, 0);
+
+    // The note is at 0. Its window closes 250 ms later, after the
+    // circle has left the line.
+    _wait(run, 240);
+    expect(run.summary.missed, 0);
+    _wait(run, 20);
+    expect(run.summary.missed, 1);
   });
 
   test('a sound during the count-in is not judged', () {
@@ -274,11 +273,23 @@ void main() {
     _wait(run, 4000);
     expect(run.positionMs, closeTo(0, 0.01));
 
-    // 150 real milliseconds late is 75 ms of song time. Still judged late.
+    // 150 real milliseconds at half speed is 75 ms of the song, which is
+    // inside the circle, so it is on time. The clock itself did move
+    // half as far: the note is only 75 ms of song time behind.
     _wait(run, 150);
     run.pluck(60, latencyMs: 0);
+    expect(run.lastMark, ScoreMark.hit);
+    expect(run.lastTimingMs, closeTo(75, 0.01));
+
+    // The next note, struck 200 ms of the song after it was due. That is
+    // past the circle, so it is late. 200 ms of the song is 400 real
+    // milliseconds at this speed; the circle did not get any smaller.
+    _wait(run, 1250);
+    run.pluck(61, latencyMs: 0);
+    expect(run.positionMs, closeTo(700, 0.01));
     expect(run.lastMark, ScoreMark.late);
-    expect(run.averageTimingMs, closeTo(150, 0.01));
+    expect(run.lastTimingMs, closeTo(200, 0.01));
+    expect(run.averageTimingMs, closeTo((75 + 200) / 2, 0.01));
   });
 
   test('a loop counts in once, then wraps with no gap', () {

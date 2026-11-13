@@ -151,17 +151,20 @@ class _Card extends StatelessWidget {
 /// One or two plain sentences on what the numbers mean.
 String _advice(PracticeRun run) {
   final lines = <String>[];
-  final timingMs = run.averageTimingMs;
-  if (timingMs != null) {
-    final off = timingMs.abs().round();
-    lines.add(
-      off < 15
-          ? 'Your timing sits right on the beat.'
-          : timingMs < 0
-          ? 'You tend to play about $off ms early. Let the note come to the line.'
-          : 'You tend to play about $off ms late. Get the finger down sooner.',
-    );
-  }
+    final timingMs = run.averageTimingMs;
+    if (timingMs != null) {
+      // Only the part past the circle is worth naming. An average that
+      // lands inside it was on time, even when every note led the centre.
+      final past = timingMs.abs() - onTimeMs;
+      final off = past.round();
+      lines.add(
+        past < 15
+            ? 'Your timing sits on the beat.'
+            : timingMs < 0
+            ? 'You tend to play about $off ms early. Let the note come to the line.'
+            : 'You tend to play about $off ms late. Meet the note sooner.',
+      );
+    }
   final stray = run.strayNotes;
   if (stray > 0) {
     lines.add(

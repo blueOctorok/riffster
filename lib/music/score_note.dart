@@ -3,25 +3,11 @@ import '../models/tab_note.dart';
 /// What the playhead decided about one sound from the guitar.
 enum ScoreMark { hit, miss, early, late }
 
-/// How fussy "on time" is. Medium matches the ring on the playhead: a
-/// note touching the gold line at full speed is a hit. Easy reaches
-/// past that ring. Hard asks for the middle of it.
-enum TimingFeel {
-  easy(label: 'Easy', onTimeMs: 200),
-  medium(label: 'Medium', onTimeMs: 120),
-  hard(label: 'Hard', onTimeMs: 70);
-
-  const TimingFeel({required this.label, required this.onTimeMs});
-
-  final String label;
-
-  /// Close enough to the written time to count as on time, in real
-  /// milliseconds. A test holds Medium against the note on screen.
-  final int onTimeMs;
-}
-
-/// Medium's window. Kept as a number so the picture and the score can
-/// be checked against each other without picking a feel first.
+/// How far from the note's centre still counts as on time, in song
+/// milliseconds. This is the time a note takes to reach the line from
+/// its first touch, so striking as the gold line meets the circle is on
+/// time, and so is striking while the line is anywhere on it. Song time
+/// keeps that circle the same size when the song is slowed.
 const onTimeMs = 120;
 
 /// Still the same beat, but not on time. Farther out is a miss, not a late
@@ -35,20 +21,19 @@ const sameBeatMs = 250;
 /// more notes at that moment: only the timing counts, until single notes
 /// are fair. An empty moment is a miss.
 ///
-/// [speed] is how fast the song clock runs against a real clock. Practice
-/// at half speed stretches the song, not the player's reflexes, so the gap
-/// is turned back into real milliseconds before it is judged.
+/// The window is song time. At half speed the note crosses the line in
+/// twice as many real milliseconds, and it is still the same circle, so
+/// the same part of it counts.
 ScoreMark scoreMoment({
   required List<TabNote> written,
   required num playedAtMs,
   int? playedMidi,
-  double speed = 1,
   int windowMs = onTimeMs,
 }) {
   if (written.isEmpty) return ScoreMark.miss;
 
   final dueAtMs = written.first.timeMs;
-  final timing = _timing((playedAtMs - dueAtMs) / speed, windowMs: windowMs);
+  final timing = _timing((playedAtMs - dueAtMs).toDouble(), windowMs: windowMs);
   if (timing == ScoreMark.miss) return ScoreMark.miss;
   if (written.length >= 2) return timing;
 
@@ -89,11 +74,8 @@ ScoreMark keepBetterMark(ScoreMark? existing, ScoreMark next) {
 /// True when the playhead has left a moment too far behind to play it.
 ///
 /// Silence has no pitch, so the clock is what says a note went by
-/// unplayed. [speed] is the same real-time correction as in [scoreMoment].
-bool windowHasPassed({
-  required int dueAtMs,
-  required num positionMs,
-  double speed = 1,
-}) {
-  return (positionMs - dueAtMs) / speed > sameBeatMs;
+/// unplayed. The same song-time window as [scoreMoment], so a slowed
+/// song keeps the note open for as long as it is on screen.
+bool windowHasPassed({required int dueAtMs, required num positionMs}) {
+  return positionMs - dueAtMs > sameBeatMs;
 }

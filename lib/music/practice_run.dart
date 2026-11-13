@@ -135,7 +135,6 @@ class PracticeRun extends ChangeNotifier {
   var _playing = false;
   var _finished = false;
   var _speed = 1.0;
-  var _timingFeel = TimingFeel.medium;
   LoopRange? _loop;
   var _loopPass = 0;
   CountIn? _countIn;
@@ -187,8 +186,6 @@ class PracticeRun extends ChangeNotifier {
 
   double get speed => _speed;
 
-  /// How close to the beat a note has to be to count as on time.
-  TimingFeel get timingFeel => _timingFeel;
   LoopRange? get loop => _loop;
 
   /// How many times the loop has wrapped. 0 on the first trip.
@@ -224,14 +221,15 @@ class PracticeRun extends ChangeNotifier {
   /// paused.
   ScoreMark? get lastMark => _lastMark;
 
-  /// How far off the beat that note was, in real milliseconds. Above
-  /// zero is late. Null whenever [lastMark] is.
+  /// How far off the note's centre that strike was, in song milliseconds.
+  /// Inside the on-time window the gauge calls it on the beat. Above zero
+  /// is late. Null whenever [lastMark] is.
   double? get lastTimingMs => _lastTimingMs;
 
   RunSummary get summary => _summary ??= RunSummary(_marks.values);
 
-  /// How far off the beat the played notes have been on average, in
-  /// real milliseconds. Above zero is late. Null before the first one.
+  /// How far off the note's centre the played notes have been on average,
+  /// in song milliseconds. Above zero is late. Null before the first one.
   double? get averageTimingMs {
     return _timingCount == 0 ? null : _timingSumMs / _timingCount;
   }
@@ -329,15 +327,9 @@ class PracticeRun extends ChangeNotifier {
     _changed();
   }
 
-  /// How fast the song clock runs. 1 is the written tempo. Timing is
-  /// still judged in real milliseconds, so slow practice is not easier
-  /// to be "on time" in. It only gives the hands longer to get there.
-  set timingFeel(TimingFeel value) {
-    if (value == _timingFeel) return;
-    _timingFeel = value;
-    _changed();
-  }
-
+  /// How fast the song clock runs. 1 is the written tempo. The on-time
+  /// window is song time, so slowing down gives the hands longer without
+  /// shrinking the circle.
   set speed(double value) {
     final next = value.clamp(slowestSpeed, 1.0).toDouble();
     if (next == _speed) return;
@@ -477,7 +469,6 @@ class PracticeRun extends ChangeNotifier {
       final gone = windowHasPassed(
         dueAtMs: moment.timeMs,
         positionMs: positionMs,
-        speed: _speed,
       );
       if (!gone) break;
       final mark = marks[moment];
@@ -514,29 +505,33 @@ class PracticeRun extends ChangeNotifier {
       written: moment.notes,
       playedAtMs: target.playedInPassMs,
       playedMidi: midi,
-      speed: _speed,
-      windowMs: _timingFeel.onTimeMs,
     );
+    // A wrong pitch, or a sound too far away to be this note, is not a
+    // miss yet. The note is still coming. Painting the X now is what
+    // made it flash on as the circle met the line, and a real pluck
+    // right after would wipe it. The X waits for the clock: once the
+    // bubble has gone and nothing saved the note, the sweep marks it.
+    if (heard == ScoreMark.miss) {
+      if (midi != null) _strayNotes++;
+      return;
+    }
     final before = marks[moment];
     marks[moment] = keepBetterMark(before, heard);
+    if (isPlayed(before)) return;
     final pass = _loopPass + target.passShift;
-    if (heard == ScoreMark.miss) {
-      _strayNotes++;
-      if (before == null) _addEffect(moment, ScoreMark.miss, pass);
-    } else if (!isPlayed(before)) {
-      final timingMs = (target.playedInPassMs - moment.timeMs) / _speed;
-      _streak++;
-      _bestStreak = math.max(_bestStreak, _streak);
-      _timingSumMs += timingMs;
-      _timingCount++;
-      _addEffect(moment, heard, pass);
-      // The feedback strip changes here and nowhere else in a run. A
-      // sound that matched no note used to put "Miss" up there, on a
-      // run with no missed notes. An extra sound is not a missed note.
-      _heardMidi = midi;
-      _lastMark = heard;
-      _lastTimingMs = timingMs;
-    }
+    // Song time, the same clock the circle scrolls on.
+    final timingMs = (target.playedInPassMs - moment.timeMs).toDouble();
+    _streak++;
+    _bestStreak = math.max(_bestStreak, _streak);
+    _timingSumMs += timingMs;
+    _timingCount++;
+    _addEffect(moment, heard, pass);
+    // The feedback strip changes here and nowhere else in a run. A
+    // sound that matched no note used to put "Miss" up there, on a
+    // run with no missed notes. An extra sound is not a missed note.
+    _heardMidi = midi;
+    _lastMark = heard;
+    _lastTimingMs = timingMs;
   }
 
   /// The moment a sound was most likely meant for.
@@ -552,7 +547,7 @@ class PracticeRun extends ChangeNotifier {
   ) {
     final loop = _loop;
     if (loop == null) {
-      final moment = _timeline.momentNear(playedAtMs, speed: _speed);
+      final moment = _timeline.momentNear(playedAtMs);
       if (moment == null) return null;
       return (moment: moment, passShift: 0, playedInPassMs: playedAtMs);
     }
@@ -561,7 +556,7 @@ class PracticeRun extends ChangeNotifier {
     var bestDistance = double.infinity;
     for (final shift in [0, 1, if (_loopPass > 0) -1]) {
       final inPassMs = playedAtMs - shift * loop.lengthMs;
-      final moment = _timeline.momentNear(inPassMs, speed: _speed);
+      final moment = _timeline.momentNear(inPassMs);
       if (moment == null || !loop.holds(moment.timeMs)) continue;
       final distance = (moment.timeMs - inPassMs).abs();
       if (distance < bestDistance) {

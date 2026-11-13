@@ -64,9 +64,8 @@ void main() {
     expect(timeline.momentNear(600), isNull);
     expect(timeline.momentNear(-200)?.timeMs, 0);
     expect(timeline.momentNear(2251), isNull);
-    // At half speed the same real window is half as wide in song time.
-    expect(timeline.momentNear(1126, speed: 0.5), isNull);
-    expect(timeline.momentNear(1124, speed: 0.5)?.timeMs, 1000);
+    // Slowing the song does not shrink how far a note can still be heard.
+    expect(timeline.momentNear(1126)?.timeMs, 1000);
   });
 
   test('one grace note does not set the spacing for the whole song', () {

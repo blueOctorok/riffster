@@ -82,10 +82,10 @@ class SongTimeline {
   /// Null when the playhead is between phrases. Only the moment just
   /// before and the one just after can be the closest, so those two are
   /// the only ones compared.
-  SongMoment? momentNear(num timeMs, {double speed = 1}) {
+  SongMoment? momentNear(num timeMs) {
     final after = firstAtOrAfter(timeMs);
     SongMoment? best;
-    var bestDistance = sameBeatMs * speed;
+    var bestDistance = sameBeatMs.toDouble();
     for (final index in [after - 1, after]) {
       if (index < 0 || index >= moments.length) continue;
       final distance = (moments[index].timeMs - timeMs).abs();

@@ -100,29 +100,6 @@ void main() {
     }
   });
 
-  test('the feel changes what counts as on time', () {
-    final written = [_note(midi: 64)];
-
-    expect(
-      scoreMoment(
-        written: written,
-        playedAtMs: 1000 - 160,
-        playedMidi: 64,
-        windowMs: TimingFeel.easy.onTimeMs,
-      ),
-      ScoreMark.hit,
-    );
-    expect(
-      scoreMoment(
-        written: written,
-        playedAtMs: 1000 - 160,
-        playedMidi: 64,
-        windowMs: TimingFeel.hard.onTimeMs,
-      ),
-      ScoreMark.early,
-    );
-  });
-
   test('a hit stays, and a miss can still be saved', () {
     expect(keepBetterMark(null, ScoreMark.miss), ScoreMark.miss);
     expect(keepBetterMark(ScoreMark.miss, ScoreMark.hit), ScoreMark.hit);
@@ -136,21 +113,22 @@ void main() {
     expect(windowHasPassed(dueAtMs: 1000, positionMs: 251), isFalse);
   });
 
-  test('half speed is judged in real time, not in song time', () {
+  test('slowing the song does not shrink the circle', () {
     final written = [_note(midi: 64)];
 
-    // 70 ms of song time at half speed is 140 real milliseconds early.
+    // 70 ms of the song is inside the circle, at any speed. It used to
+    // be called early at half speed, because 70 song ms is 140 real ms
+    // and the window was 120 real ms.
     expect(
-      scoreMoment(
-        written: written,
-        playedAtMs: 1000 - 70,
-        playedMidi: 64,
-        speed: 0.5,
-      ),
+      scoreMoment(written: written, playedAtMs: 1000 - 70, playedMidi: 64),
+      ScoreMark.hit,
+    );
+    // 150 ms of the song is past the circle: early, however slow it feels.
+    expect(
+      scoreMoment(written: written, playedAtMs: 1000 - 150, playedMidi: 64),
       ScoreMark.early,
     );
-    // 130 ms of song time is 260 real milliseconds: a different beat.
-    expect(windowHasPassed(dueAtMs: 0, positionMs: 125, speed: 0.5), isFalse);
-    expect(windowHasPassed(dueAtMs: 0, positionMs: 130, speed: 0.5), isTrue);
+    expect(windowHasPassed(dueAtMs: 0, positionMs: 250), isFalse);
+    expect(windowHasPassed(dueAtMs: 0, positionMs: 251), isTrue);
   });
 }

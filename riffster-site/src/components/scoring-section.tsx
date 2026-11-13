@@ -7,7 +7,7 @@ const marks = [
   {
     name: "Hit",
     color: "border-hit shadow-hit/60",
-    meaning: "The right note, within 120 milliseconds of the beat.",
+    meaning: "The right note, struck while the line is on the circle.",
   },
   {
     name: "Early or late",

@@ -81,6 +81,8 @@ Future<void> _showBar(
   double? measuredDelayMs,
   VoidCallback? onTimingCheck,
   VoidCallback? onClip,
+  bool clipRecording = false,
+  DateTime? clipStarted,
 }) async {
   tester.view.physicalSize = const Size(1264, 681);
   tester.view.devicePixelRatio = 1;
@@ -106,6 +108,8 @@ Future<void> _showBar(
             measuredDelayMs: measuredDelayMs,
             onTimingCheck: onTimingCheck ?? () {},
             onClip: onClip,
+            clipRecording: clipRecording,
+            clipStarted: clipStarted,
           ),
         ),
       ),
@@ -225,6 +229,23 @@ void main() {
     );
     expect(status.didExceedMaxLines, isFalse);
   }, variant: TargetPlatformVariant.only(TargetPlatform.windows));
+
+  testWidgets('an open clip replaces the status with a recording line', (
+    tester,
+  ) async {
+    await _showBar(
+      tester,
+      _input(active: EarSource.cable),
+      onClip: () {},
+      clipRecording: true,
+      clipStarted: DateTime.now(),
+    );
+
+    expect(find.textContaining('Recording'), findsOneWidget);
+    expect(find.textContaining('Restart does not stop this'), findsOneWidget);
+    expect(find.text('Save clip'), findsOneWidget);
+    expect(find.text('Record clip'), findsNothing);
+  });
 
   test('a measured delay is kept for the input it was measured on', () {
     final store = SettingsStore.inMemory();
