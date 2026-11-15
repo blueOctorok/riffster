@@ -1,5 +1,18 @@
 # Changes
 
+## 2026-11-14 — Stage 5: drills
+
+Practice has a second page, Drills, next to Scales. Six exercises, each with the same four knobs: key, length (2, 4, or 8 bars), note value (quarter, eighth, sixteenth), and difficulty.
+
+- **Where a drill is built.** `practiceDrill` in `lib/music/drill_line.dart`. It returns an ordinary song, so the stage, the score, and the speed dock are unchanged. A drill is not saved to the Library.
+- **Two of them name the string and the fret.** A finger warm-up is 1-2-3-4 up the strings and back down, starting at the root's fret. Easy is that shape, medium starts two frets higher, hard plays the shape and then the next position. String crossing stays on the root's fret and changes string: two strings, then three, then the whole set and back. The placer's job is to avoid extra shifts and crossings, so giving it these two would let it solve the exercise. The fingers on the warm-up are stored with the note, so the way back down keeps 1-2-3-4.
+- **The other four are pitches, and the placer picks the frets.** Octave jumps (root and octave, then from the next scale tone, then every degree of the major scale). Root and fifth (the same idea, a fifth apart). Rhythm on one note: easy is steady, medium is note then rest, hard is two notes, a gap, and a note. The rest is a missing note, and the next one stays on the grid. The scale walk moves one scale tone at a time inside a box: four semitones, then seven, then the octave. The step comes from a fixed sum of the knobs, so the same knobs always build the same line. Playing it again is practice. A new root or a new difficulty is a different line.
+- **The page.** `PracticePageSwitch` and `DrillChoices` in `lib/widgets/practice/drill_choices.dart`. The root chips are shared with the scales (`practice_chip.dart`).
+
+Checked: the drill tests and the two Practice widget tests pass, and the analyzer is clean on the files this touches.
+
+The Windows zip was rebuilt the same day, 14 November 2026, 14 MB, so the download has the drills.
+
 ## 2026-11-13 — Stage 5 started: scales and arpeggios
 
 Practice opens from the rail. A root, a scale, and an arpeggio put one octave on the stage, up and back down, and the run scores it like a song. The line starts on the lowest root the neck has, so an E scale on bass starts on the open E and a C scale starts a minor third higher. The same placer that sits a melody picks the frets.

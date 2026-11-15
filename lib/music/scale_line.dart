@@ -89,7 +89,7 @@ TabSong practiceLine({
   required LineKind kind,
   int tempoBpm = 80,
 }) {
-  final start = _lowestRoot(instrument, pitchClass);
+  final start = lowestRoot(instrument, pitchClass);
   // Up through the octave, then the same degrees back down. The octave
   // is the turn, so it is not played twice.
   final degrees = [...kind.steps, 12, ...kind.steps.reversed];
@@ -113,15 +113,22 @@ TabSong practiceLine({
   ).withCommonTimeBars();
 }
 
+/// How many frets above the lowest open string [pitchClass] sits.
+///
+/// Zero means the root is that open string. An E on a bass is 0. A C
+/// is 8, because there is no C below the low E.
+int rootFret(Instrument instrument, int pitchClass) {
+  final lowest = instrument.openStringMidi.last % 12;
+  return (pitchClass - lowest + 12) % 12;
+}
+
 /// The lowest note of [pitchClass] the neck can play.
 ///
 /// Pitch classes wrap every 12 semitones, and C is 0. The lowest open
 /// string is some class already. The distance forward to the root is
 /// how many frets above that open string the scale has to start. An E
-/// scale on a bass starts on the open E. A C scale starts a minor
-/// third higher, because there is no C below that E.
-int _lowestRoot(Instrument instrument, int pitchClass) {
-  final lowest = instrument.openStringMidi.last;
-  final fretsUp = (pitchClass - lowest % 12 + 12) % 12;
-  return lowest + fretsUp;
+/// scale on a bass starts on the open E. A C scale starts eight
+/// frets higher, because there is no C below that E.
+int lowestRoot(Instrument instrument, int pitchClass) {
+  return instrument.openStringMidi.last + rootFret(instrument, pitchClass);
 }

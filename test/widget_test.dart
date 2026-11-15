@@ -502,6 +502,26 @@ void main() {
     await _go(tester, AppArea.songs);
     expect(_stage(tester).run.song.title, 'Warm-up');
   });
+
+  testWidgets('Practice drills replace the scale', (tester) async {
+    await _open(tester, instrument: Instrument.bass, area: AppArea.practice);
+
+    await tester.tap(find.byKey(const Key('practice-drills')));
+    await tester.pump();
+
+    expect(_stage(tester).run.song.title, 'E finger warm-up');
+
+    await tester.ensureVisible(find.byKey(const Key('drill-octaveJumps')));
+    await tester.tap(find.byKey(const Key('drill-octaveJumps')));
+    await tester.pump();
+
+    final song = _stage(tester).run.song;
+    expect(song.title, 'E octave jumps');
+    expect((song.notes[1].midi - song.notes[0].midi).abs(), 12);
+
+    await _go(tester, AppArea.songs);
+    expect(_stage(tester).run.song.title, 'Warm-up');
+  });
 }
 
 /// Plays every note of [run] on time, from where it stands to the end.

@@ -19,6 +19,7 @@ import '../models/instrument.dart';
 import '../models/tab_song.dart';
 import '../music/chord_catalog.dart';
 import '../music/chord_lane.dart';
+import '../music/drill_line.dart';
 import '../music/scale_line.dart';
 import '../music/practice_run.dart';
 import '../theme/neck_theme.dart';
@@ -27,6 +28,7 @@ import '../widgets/chord_lane_bar.dart';
 import '../widgets/chord_palette.dart';
 import '../widgets/chord_picker.dart';
 import '../widgets/finger_colors.dart';
+import '../widgets/practice/drill_choices.dart';
 import '../widgets/practice/line_choices.dart';
 import '../widgets/practice/feedback_strip.dart';
 import '../widgets/practice/run_summary_card.dart';
@@ -77,6 +79,11 @@ class _AppShellState extends State<AppShell>
   /// until the player picks something else. Both instruments have an E.
   var _pitchClass = 4;
   var _lineKind = LineKind.major;
+  var _practicePage = PracticePage.scales;
+  var _drillKind = DrillKind.fingerWarmup;
+  var _drillBars = DrillBars.four;
+  var _noteValue = NoteValue.eighth;
+  var _drillLevel = DrillLevel.easy;
 
   /// The ticker reports time since it started. The run wants the time
   /// since the last frame, so the last reading is kept to subtract.
@@ -165,13 +172,7 @@ class _AppShellState extends State<AppShell>
     super.initState();
     final instrument = _store.instrument ?? Instrument.bass;
     _songRun = PracticeRun(warmUpFor(instrument));
-    _practiceRun = PracticeRun(
-      practiceLine(
-        instrument: instrument,
-        pitchClass: _pitchClass,
-        kind: _lineKind,
-      ),
-    );
+    _practiceRun = PracticeRun(_practiceSong(instrument));
     _ticker = createTicker(_onTick);
     _songRun.addListener(_syncTicker);
     _songRun.addListener(_keepBestScore);
@@ -360,16 +361,29 @@ class _AppShellState extends State<AppShell>
     _ear.instrument = _run.song.instrument;
   }
 
+  /// The line the Practice stage is showing: a scale, or a drill.
+  TabSong _practiceSong(Instrument instrument) {
+    if (_practicePage == PracticePage.drills) {
+      return practiceDrill(
+        instrument: instrument,
+        pitchClass: _pitchClass,
+        kind: _drillKind,
+        bars: _drillBars,
+        value: _noteValue,
+        level: _drillLevel,
+      );
+    }
+    return practiceLine(
+      instrument: instrument,
+      pitchClass: _pitchClass,
+      kind: _lineKind,
+    );
+  }
+
   /// Puts the current root and shape on the Practice stage, for the
   /// instrument the song is already using.
   void _loadPractice() {
-    _practiceRun.load(
-      practiceLine(
-        instrument: _songRun.song.instrument,
-        pitchClass: _pitchClass,
-        kind: _lineKind,
-      ),
-    );
+    _practiceRun.load(_practiceSong(_songRun.song.instrument));
     _syncTicker();
     _ear.instrument = _run.song.instrument;
   }
@@ -703,12 +717,48 @@ class _AppShellState extends State<AppShell>
           ),
           const SizedBox(height: 16),
           if (_practicing) ...[
-            LineChoices(
-              pitchClass: _pitchClass,
-              kind: _lineKind,
-              onPitchClass: (pitchClass) => _chooseLine(pitchClass: pitchClass),
-              onKind: (kind) => _chooseLine(kind: kind),
+            PracticePageSwitch(
+              page: _practicePage,
+              onPage: (page) {
+                setState(() => _practicePage = page);
+                _loadPractice();
+              },
             ),
+            const SizedBox(height: 14),
+            if (_practicePage == PracticePage.scales)
+              LineChoices(
+                pitchClass: _pitchClass,
+                kind: _lineKind,
+                onPitchClass: (pitchClass) =>
+                    _chooseLine(pitchClass: pitchClass),
+                onKind: (kind) => _chooseLine(kind: kind),
+              )
+            else
+              DrillChoices(
+                pitchClass: _pitchClass,
+                kind: _drillKind,
+                bars: _drillBars,
+                value: _noteValue,
+                level: _drillLevel,
+                onPitchClass: (pitchClass) =>
+                    _chooseLine(pitchClass: pitchClass),
+                onKind: (kind) {
+                  setState(() => _drillKind = kind);
+                  _loadPractice();
+                },
+                onBars: (bars) {
+                  setState(() => _drillBars = bars);
+                  _loadPractice();
+                },
+                onValue: (value) {
+                  setState(() => _noteValue = value);
+                  _loadPractice();
+                },
+                onLevel: (level) {
+                  setState(() => _drillLevel = level);
+                  _loadPractice();
+                },
+              ),
             const SizedBox(height: 14),
           ],
           if (_building) ..._chordBook(),

@@ -88,8 +88,8 @@ Scales and arpeggios are under way. Stay on the current model until the drum gro
 
 - [x] Scales by rule, one octave up and back down, placed on the neck and played as a scored run. Major, minor, both pentatonics, and blues. Practice opens from the rail. Built 2026-11-13.
 - [x] Arpeggios the same way, on the same screen: major, minor, 7, maj7, m7. Built 2026-11-13.
-- [x] The download zip was rebuilt the same day with Practice. The page still says 13 November 2026, 14 MB.
-- [ ] Drills with knobs: key, length, note value, difficulty.
+- [x] The download zip was rebuilt the same day with Practice. Replaced on 2026-11-14 by the drills build. The page says 14 November 2026, 14 MB.
+- [x] Drills with knobs: key, length, note value, difficulty. Six exercises on a Drills page next to the scales. Built 2026-11-14 and packed into the download the same day.
 - [ ] Find the note.
 - [ ] Trouble spots: one tap loops the bars with misses at 70 percent and steps the speed up after three clean passes.
 - [ ] Days in a row and minutes played on Home. No trophies.
@@ -196,7 +196,7 @@ The domain `riffster.xyz` is already registered at Namecheap. The page lives in 
 - [ ] Decide whether the page should take an email address for "tell me when the phone app is out". It needs somewhere to keep the addresses.
 - [ ] A picture for link previews (the image a link shows when it is pasted into a message). The dog mark is ready to go on it.
 - [x] The dog mark is the Windows icon, the browser tab icon, and sits with the name in the app and on the site (2026-11-12). `tool/brand/make_brand.py` rebuilds every icon file from the two drawings beside it.
-- [x] The Windows build is a zip of the whole release folder, `riffster-site/public/Riffster-windows.zip`, dated 13 November 2026. Repacked on the 12th with the 120 ms timing and the rings, then the timing settings, then the dog icon, and on the 13th with the shell, the tuner, and the silent-input fix. An app change is not in the download until this zip is rebuilt and pushed.
+- [x] The Windows build is a zip of the whole release folder, `riffster-site/public/Riffster-windows.zip`, dated 14 November 2026. Repacked on the 12th with the 120 ms timing and the rings, then the timing settings, then the dog icon, on the 13th with the shell and then Practice, and on the 14th with the drills. An app change is not in the download until this zip is rebuilt and pushed.
 - [x] Deployed to https://riffster-site.vercel.app on Pace Projects, 2026-11-12. The framework has to be Next.js. A new project was guessed as a plain file site, which served the zip and lost the page.
 - [x] Namecheap DNS pointed at Vercel on 2026-11-12. A `@` `216.150.1.1`, A `@` `216.150.16.1`, and CNAME `www` `f9f16c33a1c708b9.vercel-dns-016.com`. `www` redirects to the bare domain. Public DNS already returns the site. A network that still shows the parking page is holding the old answer.
 
